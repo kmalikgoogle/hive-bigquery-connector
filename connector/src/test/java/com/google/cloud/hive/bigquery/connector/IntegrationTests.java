@@ -177,7 +177,7 @@ public class IntegrationTests {
   public void testReadEmptyTable() {
     for (String engine : new String[] {"mr", "tez"}) {
       for (String readDataFormat :
-          new String[] {HiveBigQueryConfig.ARROW /*, HiveBigQueryConfig.AVRO*/}) {
+          new String[] {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO}) {
         setUp();
         readEmptyTable(engine, readDataFormat);
         tearDown();
@@ -217,7 +217,7 @@ public class IntegrationTests {
   public void testWhereClause() {
     for (String engine : new String[] {"mr", "tez"}) {
       for (String readDataFormat :
-          new String[] {HiveBigQueryConfig.ARROW /*, HiveBigQueryConfig.AVRO*/}) {
+          new String[] {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO}) {
         setUp();
         whereClause(engine, readDataFormat);
         tearDown();
@@ -276,7 +276,7 @@ public class IntegrationTests {
   public void testSelectExplicitColumns() {
     for (String engine : new String[] {"mr", "tez"}) {
       for (String readDataFormat :
-          new String[] {HiveBigQueryConfig.ARROW /*, HiveBigQueryConfig.AVRO*/}) {
+          new String[] {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO}) {
         setUp();
         selectExplicitColumns(engine, readDataFormat);
         tearDown();
