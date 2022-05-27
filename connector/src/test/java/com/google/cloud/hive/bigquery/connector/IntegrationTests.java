@@ -340,6 +340,41 @@ public class IntegrationTests {
 
   // ---------------------------------------------------------------------------------------------------
 
+  /** Insert data using the "indirect" write method. */
+  public void insertIndirect(String engine) {
+    // Check that the bucket is empty
+    List<Blob> blobs = getBlobs(TEMP_BUCKET_NAME);
+    assertEquals(0, blobs.size());
+
+    // Insert data using Hive
+    insert(engine, HiveBigQueryConfig.WRITE_METHOD_INDIRECT);
+
+    // Check that the blobs were created by the job. Two are pseudo directories, and the third
+    // one is the temporary avro file.
+    // Note: Eventually Hadoop would automatically delete those blobs. See the call to
+    // `IndirectUtils.deleteGcsTempDir()` in `IndirectOutputCommitter.commitJob()`.
+    blobs = getBlobs(TEMP_BUCKET_NAME);
+    assertEquals(3, blobs.size());
+    assertEquals("temp/", blobs.get(0).getName()); // The base dir
+    assertTrue(
+        blobs.get(1).getName().startsWith("temp/bq-hive-")
+            && blobs.get(1).getName().endsWith("/")); // The job's working dir
+    assertTrue(
+        blobs.get(2).getName().startsWith("temp/bq-hive-")
+            && blobs.get(2).getName().endsWith(".avro")); // The temp avro file
+  }
+
+  @Test
+  public void testInsertIndirect() {
+    for (String engine : new String[] {"mr", "tez"}) {
+      setUp();
+      insertIndirect(engine);
+      tearDown();
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+
   /** Test the "INSERT OVERWRITE" statement, which clears the table before writing the new data. */
   public void insertOverwrite(String engine, String writeMethod) {
     // Create some initial data in BQ
@@ -369,7 +404,7 @@ public class IntegrationTests {
     for (String engine : new String[] {"mr", "tez"}) {
       for (String writeMethod :
           new String[] {
-            HiveBigQueryConfig.WRITE_METHOD_DIRECT /*, HiveBigQueryConfig.WRITE_METHOD_INDIRECT*/
+            HiveBigQueryConfig.WRITE_METHOD_DIRECT, HiveBigQueryConfig.WRITE_METHOD_INDIRECT
           }) {
         setUp();
         insertOverwrite(engine, writeMethod);
@@ -551,7 +586,7 @@ public class IntegrationTests {
     for (String engine : new String[] {"mr", "tez"}) {
       for (String writeMethod :
           new String[] {
-            HiveBigQueryConfig.WRITE_METHOD_DIRECT /*, HiveBigQueryConfig.WRITE_METHOD_INDIRECT */
+            HiveBigQueryConfig.WRITE_METHOD_DIRECT, HiveBigQueryConfig.WRITE_METHOD_INDIRECT
           }) {
         setUp();
         writeAllTypes(engine, writeMethod);
@@ -681,7 +716,7 @@ public class IntegrationTests {
           new String[] {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO}) {
         for (String writeMethod :
             new String[] {
-              HiveBigQueryConfig.WRITE_METHOD_DIRECT /*, HiveBigQueryConfig.WRITE_METHOD_INDIRECT*/
+              HiveBigQueryConfig.WRITE_METHOD_DIRECT, HiveBigQueryConfig.WRITE_METHOD_INDIRECT
             }) {
           setUp();
           multiReadWrite(engine, readDataFormat, writeMethod);
