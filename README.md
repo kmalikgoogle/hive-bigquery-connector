@@ -214,17 +214,17 @@ You can set the following Hive/Hadoop configuration properties in your environme
 
 ## Data Type Mapping
 
-| BigQuery  | Hive      | DESCRIPTION                                                                                                                               |
-|-----------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| INTEGER   | BIGINT    | Signed 8-byte Integer                                                                                                                     |
-| FLOAT     | DOUBLE    | 8-byte double precision floating point number                                                                                             |
-| DATE      | DATE      | FORMAT IS YYYY-[M]M-[D]D. The range of values supported for the Date type is 0001-­01-­01 to 9999-­12-­31                                 |
-| TIMESTAMP | TIMESTAMP | Represents an absolute point in time since Unix epoch with millisecond precision (on Hive) compared to Microsecond precision on Bigquery. |
-| BOOLEAN   | BOOLEAN   | Boolean values are represented by the keywords TRUE and FALSE                                                                             |
-| STRING    | STRING    | Variable-length character data                                                                                                            |
-| BYTES     | BINARY    | Variable-length binary data                                                                                                               |
-| REPEATED  | ARRAY     | Represents repeated values                                                                                                                |
-| RECORD    | STRUCT    | Represents nested structures                                                                                                              |
+| BigQuery | Hive      | DESCRIPTION                                                                                                                               |
+|----------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| INTEGER  | BIGINT    | Signed 8-byte Integer                                                                                                                     |
+| FLOAT    | DOUBLE    | 8-byte double precision floating point number                                                                                             |
+| DATE     | DATE      | FORMAT IS YYYY-[M]M-[D]D. The range of values supported for the Date type is 0001-­01-­01 to 9999-­12-­31                                 |
+| DATETIME | TIMESTAMP | Represents an absolute point in time since Unix epoch with millisecond precision (on Hive) compared to Microsecond precision on Bigquery. |
+| BOOLEAN  | BOOLEAN   | Boolean values are represented by the keywords TRUE and FALSE                                                                             |
+| STRING   | STRING    | Variable-length character data                                                                                                            |
+| BYTES    | BINARY    | Variable-length binary data                                                                                                               |
+| REPEATED | ARRAY     | Represents repeated values                                                                                                                |
+| RECORD   | STRUCT    | Represents nested structures                                                                                                              |
 
 ## Execution engines
 

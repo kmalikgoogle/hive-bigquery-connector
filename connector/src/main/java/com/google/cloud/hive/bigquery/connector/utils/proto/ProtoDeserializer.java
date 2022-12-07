@@ -15,8 +15,12 @@
  */
 package com.google.cloud.hive.bigquery.connector.utils.proto;
 
+import com.google.cloud.bigquery.storage.v1beta2.CivilTimeEncoder;
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
+import java.time.*;
 import java.util.*;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
@@ -147,8 +151,17 @@ public class ProtoDeserializer {
       if (fieldValue instanceof Long) {
         return fieldValue;
       }
-      TimestampWritableV2 timestamp = (TimestampWritableV2) fieldValue;
-      return timestamp.getSeconds() * 1_000_000 + timestamp.getNanos() / 1000;
+      Timestamp timestamp = ((TimestampWritableV2) fieldValue).getTimestamp();
+      LocalDateTime utcDateTime = DateTimeUtils.convertToUTC(timestamp);
+      return CivilTimeEncoder.encodePacked64DatetimeMicros(
+          org.threeten.bp.LocalDateTime.of(
+              utcDateTime.getYear(),
+              utcDateTime.getMonthValue(),
+              utcDateTime.getDayOfMonth(),
+              utcDateTime.getHour(),
+              utcDateTime.getMinute(),
+              utcDateTime.getSecond(),
+              utcDateTime.getNano()));
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

@@ -18,10 +18,15 @@ package com.google.cloud.hive.bigquery.connector.utils.avro;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
@@ -137,14 +142,25 @@ public class AvroDeserializer {
       if (fieldValue instanceof Long) {
         return fieldValue;
       }
+      Timestamp ts = ((TimestampWritableV2) fieldValue).getTimestamp();
+      ZonedDateTime localDateTime =
+          LocalDateTime.of(
+                  ts.getYear(),
+                  ts.getMonth(),
+                  ts.getDay(),
+                  ts.getHours(),
+                  ts.getMinutes(),
+                  ts.getSeconds(),
+                  ts.getNanos())
+              .atZone(ZoneId.systemDefault());
       JsonNode logicalType = schemaInfo.getActualSchema().getJsonProp("logicalType");
-      TimestampWritableV2 timestamp = (TimestampWritableV2) fieldValue;
       if (logicalType != null) {
         if (logicalType.asText().equals("timestamp-millis")) {
-          return timestamp.getSeconds() * 1_000;
+          return TimeUnit.SECONDS.toMicros(localDateTime.toEpochSecond());
         }
       }
-      return timestamp.getSeconds() * 1_000_000 + timestamp.getNanos() / 1000;
+      return TimeUnit.SECONDS.toMicros(localDateTime.toEpochSecond())
+          + TimeUnit.NANOSECONDS.toMicros(localDateTime.getNano());
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

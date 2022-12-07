@@ -40,6 +40,7 @@ import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.mapred.JobConf;
+import org.codehaus.jackson.JsonNode;
 
 public class AvroUtils {
 
@@ -71,8 +72,7 @@ public class AvroUtils {
 
   /**
    * Makes some modifications to the provided Avro schema to be compatible with the way we store
-   * Hive data in BigQuery. Currently, the only modification that we make is convert the Map type
-   * (which BigQuery doesn't support natively) into a list of key/value records.
+   * Hive data in BigQuery.
    */
   public static Schema adaptSchemaForBigQuery(Schema originalSchema) {
     AvroSchemaInfo schemaInfo = AvroUtils.getSchemaInfo(originalSchema);
@@ -111,6 +111,16 @@ public class AvroUtils {
               "map_" + UUID.randomUUID().toString().replace("-", ""), null, null, false);
       entrySchema.setFields(Arrays.asList(keyField, valueField));
       schema = Schema.createArray(entrySchema);
+    } else if (schema.getType() == Schema.Type.LONG) {
+      JsonNode logicalType = schema.getJsonProp("logicalType");
+      if (logicalType != null) {
+        // Convert the Hive timestamp (which is timezone-less) to a local-timestamp,
+        // which corresponds to BigQuery's DATETIME type.
+        if (logicalType.asText().equals("timestamp-millis") || logicalType.asText().equals("timestamp-micros")) {
+          schema = Schema.create(Schema.Type.LONG);
+          schema.addProp("logicalType", "local-timestamp-micros");
+        }
+      }
     }
 
     if (schemaInfo.isNullable()) {

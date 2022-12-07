@@ -19,8 +19,10 @@ import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspect
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
@@ -171,18 +173,17 @@ public class ArrowSerializer {
     }
 
     if (objectInspector instanceof TimestampObjectInspector) {
-      if (value instanceof TimeStampMicroTZVector) {
-        long longValue = ((TimeStampMicroTZVector) value).get(rowId);
-        TimestampWritableV2 timestamp = new TimestampWritableV2();
-        long secondsAsMillis = (longValue / 1_000_000) * 1_000;
-        int nanos = (int) (longValue % 1_000_000) * 1_000;
-        timestamp.setInternal(secondsAsMillis, nanos);
-        return timestamp;
-      }
       if (value instanceof TimeStampMicroVector) {
-        LocalDateTime localDateTime = ((TimeStampMicroVector) value).getObject(rowId);
+        LocalDateTime utcLocalDateTime = ((TimeStampMicroVector) value).getObject(rowId);
+        LocalDateTime localDateTime =
+            utcLocalDateTime
+                .atZone(ZoneId.of("UTC"))
+                .withZoneSameInstant(ZoneId.systemDefault())
+                .toLocalDateTime();
         TimestampWritableV2 timestamp = new TimestampWritableV2();
-        timestamp.setInternal(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
+        timestamp.setInternal(
+            TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
+            localDateTime.getNano());
         return timestamp;
       }
       throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());

@@ -15,8 +15,11 @@
  */
 package com.google.cloud.hive.bigquery.connector.input;
 
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.hadoop.hive.common.type.HiveIntervalDayTime;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.plan.ExprNodeConstantDesc;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.BaseCharTypeInfo;
@@ -57,10 +60,12 @@ public class BigQueryConstantDesc extends ExprNodeConstantDesc {
       return "'" + value + "'";
     }
     if (typeName.equals("date")) {
-      return "DATE('" + value + "')";
+      return "DATE'" + value + "'";
     }
     if (typeInfo.getTypeName().equals("timestamp")) {
-      return "TIMESTAMP('" + value + "')";
+      Timestamp timestamp = (Timestamp) value;
+      LocalDateTime utcDateTime = DateTimeUtils.convertToUTC(timestamp);
+      return "DATETIME'" + utcDateTime + "'";
     }
     if (typeInfo.getTypeName().equals("interval_day_time")) {
       HiveIntervalDayTime intervalDayTime = (HiveIntervalDayTime) value;

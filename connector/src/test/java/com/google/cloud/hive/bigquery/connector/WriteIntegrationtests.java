@@ -24,9 +24,9 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.hive.bigquery.connector.config.HiveBigQueryConfig;
 import com.google.cloud.storage.Blob;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junitpioneer.jupiter.DefaultTimeZone;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import repackaged.by.hivebqconnector.com.google.common.collect.Streams;
 
@@ -116,6 +116,7 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
 
   /** Check that we can write all types of data to BigQuery. */
   @CartesianTest
+  @DefaultTimeZone("HST") // Hawaii Standard Time (10 hours behind UTC)
   public void testWriteAllTypes(
       @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
       @CartesianTest.Values(
@@ -174,18 +175,7 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
     assertEquals("var char", row.get(6).getStringValue());
     assertEquals("string", row.get(7).getStringValue());
     assertEquals("2019-03-18", row.get(8).getStringValue());
-    if (Objects.equals(writeMethod, HiveBigQueryConfig.WRITE_METHOD_DIRECT)) {
-      assertEquals(1552872225678901L, row.get(9).getTimestampValue());
-    } else {
-      // As we rely on the AvroSerde to generate the Avro schema for the
-      // indirect write method, we lose the micro-second precision due
-      // to the fact that the AvroSerde is currently limited to
-      // 'timestamp-mills' precision.
-      // See: https://issues.apache.org/jira/browse/HIVE-20889
-      // TODO: Write our own avro schema generation tool to get
-      //  around this limitation.
-      assertEquals(1552872225000000L, row.get(9).getTimestampValue());
-    }
+    assertEquals("2019-03-18T11:23:45.678901", row.get(9).getStringValue()); // UTC time
     assertArrayEquals("bytes".getBytes(), row.get(10).getBytesValue());
     assertEquals(2.0, row.get(11).getDoubleValue());
     assertEquals(4.2, row.get(12).getDoubleValue());

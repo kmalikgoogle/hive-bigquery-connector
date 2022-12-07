@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.DefaultTimeZone;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 
 public class ReadIntegrationTests extends IntegrationTestsBase {
@@ -348,6 +349,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
 
   /** Check that we can read all types of data from BigQuery. */
   @CartesianTest
+  @DefaultTimeZone("HST") // Hawaii Standard Time (10 hours behind UTC)
   public void testReadAllTypes(
       @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
           String readDataFormat)
@@ -367,7 +369,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
                 "\"var char\",",
                 "\"string\",",
                 "cast(\"2019-03-18\" as date),",
-                "cast(\"2019-03-18T01:23:45.678901\" as timestamp),",
+                "cast(\"2019-03-18T11:23:45.678901\" as datetime),",
                 "cast(\"bytes\" as bytes),",
                 "2.0,",
                 "4.2,",
