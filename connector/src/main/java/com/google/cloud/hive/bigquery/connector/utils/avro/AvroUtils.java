@@ -116,7 +116,8 @@ public class AvroUtils {
       if (logicalType != null) {
         // Convert the Hive timestamp (which is timezone-less) to a local-timestamp,
         // which corresponds to BigQuery's DATETIME type.
-        if (logicalType.asText().equals("timestamp-millis") || logicalType.asText().equals("timestamp-micros")) {
+        if (logicalType.asText().equals("timestamp-millis")
+            || logicalType.asText().equals("timestamp-micros")) {
           schema = Schema.create(Schema.Type.LONG);
           schema.addProp("logicalType", "local-timestamp-micros");
         }

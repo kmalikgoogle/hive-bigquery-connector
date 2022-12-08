@@ -15,6 +15,7 @@
  */
 package com.google.cloud.hive.bigquery.connector.utils.avro;
 
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -32,6 +33,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
@@ -107,17 +109,24 @@ public class AvroSerializer {
     }
 
     if (objectInspector instanceof TimestampObjectInspector) {
-      LocalDateTime utcLocalDateTime = LocalDateTime.parse(((Utf8) avroObject).toString());
-      LocalDateTime localDateTime =
-          utcLocalDateTime
-              .atZone(ZoneId.of("UTC"))
-              .withZoneSameInstant(ZoneId.systemDefault())
-              .toLocalDateTime();
-      TimestampWritableV2 timestamp = new TimestampWritableV2();
-      timestamp.setInternal(
-          TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
-          localDateTime.getNano());
-      return timestamp;
+      // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
+      if (avroObject instanceof Utf8) { // BigQuery DATETIME
+        LocalDateTime utcLocalDateTime = LocalDateTime.parse(((Utf8) avroObject).toString());
+        LocalDateTime localDateTime =
+            utcLocalDateTime
+                .atZone(ZoneId.of("UTC"))
+                .withZoneSameInstant(ZoneId.systemDefault())
+                .toLocalDateTime();
+        TimestampWritableV2 timestamp = new TimestampWritableV2();
+        timestamp.setInternal(
+            TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
+            localDateTime.getNano());
+        return timestamp;
+      }
+      if (avroObject instanceof Long) { // BigQuery TIMESTAMP
+        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp((long) avroObject);
+        return new TimestampWritableV2(timestamp);
+      }
     }
 
     if (objectInspector instanceof ByteObjectInspector) { // Tiny Int

@@ -15,16 +15,15 @@
  */
 package com.google.cloud.hive.bigquery.connector.utils.arrow;
 
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
@@ -173,7 +172,8 @@ public class ArrowSerializer {
     }
 
     if (objectInspector instanceof TimestampObjectInspector) {
-      if (value instanceof TimeStampMicroVector) {
+      // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
+      if (value instanceof TimeStampMicroVector) { // BigQuery DATETIME
         LocalDateTime utcLocalDateTime = ((TimeStampMicroVector) value).getObject(rowId);
         LocalDateTime localDateTime =
             utcLocalDateTime
@@ -185,6 +185,11 @@ public class ArrowSerializer {
             TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
             localDateTime.getNano());
         return timestamp;
+      }
+      if (value instanceof TimeStampMicroTZVector) { // BigQuery TIMESTAMP
+        long longValue = ((TimeStampMicroTZVector) value).get(rowId);
+        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp(longValue);
+        return new TimestampWritableV2(timestamp);
       }
       throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());
     }

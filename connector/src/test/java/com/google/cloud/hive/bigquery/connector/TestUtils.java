@@ -44,6 +44,7 @@ public class TestUtils {
   public static final String TEST_VIEW_NAME = "test_view";
   public static final String ANOTHER_TEST_TABLE_NAME = "another_test";
   public static final String MAP_TABLE_NAME = "maps";
+  public static final String TIMESTAMP_TABLE_NAME = "timestamps";
   public static final String ALL_TYPES_TABLE_NAME = "all_types";
   public static final String MANAGED_TEST_TABLE_NAME = "managed_test";
   public static final String FIELD_TIME_PARTITIONED_TABLE_NAME = "field_time_partitioned";
@@ -79,6 +80,13 @@ public class TestUtils {
               "map_of_ints ARRAY<STRUCT<name STRING, value INT64>>,",
               "map_of_structs ARRAY<STRUCT<name STRING, value STRUCT<color STRING>>>,",
               "map_of_arrays ARRAY<STRUCT<name STRING, value ARRAY<INT64>>>",
+              ")")
+          .collect(Collectors.joining("\n"));
+
+  public static String BIGQUERY_TIMESTAMP_TABLE_CREATE_QUERY =
+      Stream.of(
+              "CREATE OR REPLACE TABLE ${dataset}." + TIMESTAMP_TABLE_NAME + " (",
+              "ts TIMESTAMP",
               ")")
           .collect(Collectors.joining("\n"));
 
@@ -208,6 +216,19 @@ public class TestUtils {
               "  'bq.project'='${project}',",
               "  'bq.dataset'='${dataset}',",
               "  'bq.table'='" + MAP_TABLE_NAME + "'",
+              ");")
+          .collect(Collectors.joining("\n"));
+
+  public static String HIVE_TIMESTAMP_TABLE_CREATE_QUERY =
+      Stream.of(
+              "CREATE EXTERNAL TABLE " + TIMESTAMP_TABLE_NAME + " (",
+              "ts timestamp",
+              ")",
+              "STORED BY" + " 'com.google.cloud.hive.bigquery.connector.BigQueryStorageHandler'",
+              "TBLPROPERTIES (",
+              "  'bq.project'='${project}',",
+              "  'bq.dataset'='${dataset}',",
+              "  'bq.table'='" + TIMESTAMP_TABLE_NAME + "'",
               ");")
           .collect(Collectors.joining("\n"));
 

@@ -15,8 +15,7 @@
  */
 package com.google.cloud.hive.bigquery.connector.utils;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import org.apache.hadoop.hive.common.type.Timestamp;
 
 public class DateTimeUtils {
@@ -35,5 +34,15 @@ public class DateTimeUtils {
         .atZone(ZoneId.systemDefault())
         .withZoneSameInstant(ZoneId.of("UTC"))
         .toLocalDateTime();
+  }
+
+  public static Timestamp convertToHiveTimestamp(long utc) {
+    long seconds = utc / 1_000_000;
+    int nanos = (int) (utc % 1_000_000) * 1_000;
+    ZonedDateTime utcDateTime = Instant.ofEpochSecond(seconds, nanos).atZone(ZoneId.of("UTC"));
+    LocalDateTime localDateTime =
+        utcDateTime.withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+    return Timestamp.ofEpochSecond(
+        localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
   }
 }

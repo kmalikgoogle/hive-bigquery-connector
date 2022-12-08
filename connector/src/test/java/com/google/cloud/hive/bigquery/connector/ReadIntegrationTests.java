@@ -347,9 +347,37 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
 
   // ---------------------------------------------------------------------------------------------------
 
+  /** Check that we can read the BigQuery TIMESTAMP type. */
+  @CartesianTest
+  @DefaultTimeZone("HST") // Hawaii Standard Time (Pacific/Honolulu) (10 hours behind UTC)
+  public void testReadBQTimestamp(
+      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
+          String readDataFormat)
+      throws IOException {
+    // Create the BQ table
+    runBqQuery(BIGQUERY_TIMESTAMP_TABLE_CREATE_QUERY);
+    // Insert timestamp with an explicit timezone into the BQ table using the BQ SDK
+    runBqQuery(
+        Stream.of(
+                String.format("INSERT `${dataset}.%s` VALUES (", TIMESTAMP_TABLE_NAME),
+                "cast(\"2019-03-18T11:23:45.678901+13\" as timestamp)", // +13:00 (Pacific/Auckland)
+                ")")
+            .collect(Collectors.joining("\n")));
+    // Read the data using Hive
+    initHive("tez", readDataFormat);
+    runHiveScript(HIVE_TIMESTAMP_TABLE_CREATE_QUERY);
+    List<Object[]> rows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
+    assertEquals(1, rows.size());
+    Object[] row = rows.get(0);
+    assertEquals(1, row.length); // Number of columns
+    assertEquals("2019-03-17 12:23:45.678901", row[0]);
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+
   /** Check that we can read all types of data from BigQuery. */
   @CartesianTest
-  @DefaultTimeZone("HST") // Hawaii Standard Time (10 hours behind UTC)
+  @DefaultTimeZone("HST") // Hawaii Standard Time (Pacific/Honolulu) (10 hours behind UTC)
   public void testReadAllTypes(
       @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
           String readDataFormat)
