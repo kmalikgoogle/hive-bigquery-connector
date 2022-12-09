@@ -45,4 +45,15 @@ public class DateTimeUtils {
     return Timestamp.ofEpochSecond(
         localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
   }
+
+  public static Timestamp convertToSystemTimeZone(LocalDateTime utcLocalDateTime) {
+    LocalDateTime localDateTime =
+        utcLocalDateTime
+            .atZone(ZoneId.of("UTC"))
+            .withZoneSameInstant(ZoneId.systemDefault())
+            .toLocalDateTime();
+    return Timestamp.ofEpochSecond(
+        localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
+  }
+
 }

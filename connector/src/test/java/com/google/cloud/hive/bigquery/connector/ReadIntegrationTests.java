@@ -409,7 +409,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
                 "),",
                 "[1, 2, 3],",
                 "[(select as struct 111), (select as struct 222), (select as struct 333)],",
-                "struct(4.2),",
+                "struct(4.2, cast(\"2019-03-18T11:23:45.678901\" as datetime)),",
                 "[struct('a_key', [struct('a_subkey', 888)]), struct('b_key', [struct('b_subkey',"
                     + " 999)])]",
                 ")")
@@ -439,7 +439,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
         row[13]);
     assertEquals("[1,2,3]", row[14]);
     assertEquals("[{\"i\":111},{\"i\":222},{\"i\":333}]", row[15]);
-    assertEquals("{\"float_field\":4.2}", row[16]);
+    assertEquals("{\"float_field\":4.2,\"ts_field\":\"2019-03-18 01:23:45.678901\"}", row[16]);
     // Map type
     ObjectMapper mapper = new ObjectMapper();
     TypeReference<HashMap<String, HashMap<String, Integer>>> typeRef =

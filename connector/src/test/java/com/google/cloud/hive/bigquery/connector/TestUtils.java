@@ -109,7 +109,7 @@ public class TestUtils {
               "nums STRUCT<min NUMERIC, max NUMERIC, pi NUMERIC, big_pi NUMERIC>,",
               "int_arr ARRAY<int64>,",
               "int_struct_arr ARRAY<STRUCT<i INT64>>,",
-              "float_struct STRUCT<float_field FLOAT64>,",
+              "float_struct STRUCT<float_field FLOAT64, ts_field DATETIME>,",
               "mp ARRAY<STRUCT<name STRING, value ARRAY<STRUCT<name STRING, value INT64>>>>",
               ")")
           .collect(Collectors.joining("\n"));
@@ -253,7 +253,7 @@ public class TestUtils {
                   + " DECIMAL(38,9), big_pi: DECIMAL(38,9)>,",
               "int_arr ARRAY<BIGINT>,",
               "int_struct_arr ARRAY<STRUCT<i: BIGINT>>,",
-              "float_struct STRUCT<float_field:FLOAT>,",
+              "float_struct STRUCT<float_field:FLOAT,ts_field:TIMESTAMP>,",
               "mp MAP<STRING,MAP<STRING,INT>>",
               ")",
               "STORED BY" + " 'com.google.cloud.hive.bigquery.connector.BigQueryStorageHandler'",

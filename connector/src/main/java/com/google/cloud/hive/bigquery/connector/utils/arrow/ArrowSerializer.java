@@ -173,25 +173,20 @@ public class ArrowSerializer {
 
     if (objectInspector instanceof TimestampObjectInspector) {
       // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
+      Timestamp timestamp;
       if (value instanceof TimeStampMicroVector) { // BigQuery DATETIME
         LocalDateTime utcLocalDateTime = ((TimeStampMicroVector) value).getObject(rowId);
-        LocalDateTime localDateTime =
-            utcLocalDateTime
-                .atZone(ZoneId.of("UTC"))
-                .withZoneSameInstant(ZoneId.systemDefault())
-                .toLocalDateTime();
-        TimestampWritableV2 timestamp = new TimestampWritableV2();
-        timestamp.setInternal(
-            TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
-            localDateTime.getNano());
-        return timestamp;
-      }
-      if (value instanceof TimeStampMicroTZVector) { // BigQuery TIMESTAMP
+        timestamp = DateTimeUtils.convertToSystemTimeZone(utcLocalDateTime);
+      } else if (value instanceof TimeStampMicroTZVector) { // BigQuery TIMESTAMP
         long longValue = ((TimeStampMicroTZVector) value).get(rowId);
-        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp(longValue);
-        return new TimestampWritableV2(timestamp);
+        timestamp = DateTimeUtils.convertToHiveTimestamp(longValue);
+      } else if (value instanceof LocalDateTime) {
+        LocalDateTime utcLocalDateTime = (LocalDateTime) value;
+        timestamp = DateTimeUtils.convertToSystemTimeZone(utcLocalDateTime);
+      } else {
+        throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());
       }
-      throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());
+      return new TimestampWritableV2(timestamp);
     }
 
     if (objectInspector instanceof ListObjectInspector) { // Array/List type
