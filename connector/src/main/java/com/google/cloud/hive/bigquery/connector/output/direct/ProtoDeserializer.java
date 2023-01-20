@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.hive.bigquery.connector.utils.proto;
+package com.google.cloud.hive.bigquery.connector.output.direct;
 
 import com.google.cloud.bigquery.storage.v1beta2.CivilTimeEncoder;
 import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
