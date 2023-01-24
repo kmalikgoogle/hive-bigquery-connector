@@ -15,10 +15,12 @@
  */
 package com.google.cloud.hive.bigquery.connector.output.direct;
 
-import com.google.cloud.bigquery.storage.v1beta2.CivilTimeEncoder;
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
-import java.time.*;
+import java.time.ZoneId;
 import java.util.*;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
@@ -43,41 +45,40 @@ public class ProtoDeserializer {
    * BigQuery stream using the Storage Write API.
    */
   public static DynamicMessage buildSingleRowMessage(
-      StructObjectInspector soi, Descriptors.Descriptor schemaDescriptor, Object record) {
-    DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(schemaDescriptor);
-
+      StructObjectInspector soi,
+      Descriptors.Descriptor protoDescriptor,
+      FieldList bigqueryFields,
+      Object record) {
+    DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(protoDescriptor);
     List<? extends StructField> allStructFieldRefs = soi.getAllStructFieldRefs();
     List<Object> structFieldsDataAsList = soi.getStructFieldsDataAsList(record);
-
-    for (int fieldIndex = 0; fieldIndex < schemaDescriptor.getFields().size(); fieldIndex++) {
+    for (int fieldIndex = 0; fieldIndex < protoDescriptor.getFields().size(); fieldIndex++) {
       int protoFieldNumber = fieldIndex + 1;
-
       Object hiveValue = structFieldsDataAsList.get(fieldIndex);
       ObjectInspector fieldObjectInspector =
           allStructFieldRefs.get(fieldIndex).getFieldObjectInspector();
-
+      Field bigqueryField = bigqueryFields.get(fieldIndex);
       Descriptors.Descriptor nestedTypeDescriptor =
-          schemaDescriptor.findNestedTypeByName(
+          protoDescriptor.findNestedTypeByName(
               ProtoSchemaConverter.RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
       Object protoValue =
-          convertHiveValueToProtoRowValue(fieldObjectInspector, hiveValue, nestedTypeDescriptor);
-
+          convertHiveValueToProtoRowValue(
+              fieldObjectInspector, nestedTypeDescriptor, bigqueryField, hiveValue);
       if (protoValue == null) {
         continue;
       }
-
       Descriptors.FieldDescriptor fieldDescriptor =
-          schemaDescriptor.findFieldByNumber(protoFieldNumber);
+          protoDescriptor.findFieldByNumber(protoFieldNumber);
       messageBuilder.setField(fieldDescriptor, protoValue);
     }
-
     return messageBuilder.build();
   }
 
   private static Object convertHiveValueToProtoRowValue(
       ObjectInspector fieldObjectInspector,
-      Object fieldValue,
-      Descriptors.Descriptor nestedTypeDescriptor) {
+      Descriptors.Descriptor nestedTypeDescriptor,
+      Field bigqueryField,
+      Object fieldValue) {
     if (fieldValue == null) {
       return null;
     }
@@ -91,7 +92,7 @@ public class ProtoDeserializer {
         Object elementValue = iterator.next();
         Object converted =
             convertHiveValueToProtoRowValue(
-                elementObjectInspector, elementValue, nestedTypeDescriptor);
+                elementObjectInspector, nestedTypeDescriptor, bigqueryField, elementValue);
         if (converted == null) {
           continue;
         }
@@ -102,7 +103,10 @@ public class ProtoDeserializer {
 
     if (fieldObjectInspector instanceof StructObjectInspector) {
       return buildSingleRowMessage(
-          (StructObjectInspector) fieldObjectInspector, nestedTypeDescriptor, fieldValue);
+          (StructObjectInspector) fieldObjectInspector,
+          nestedTypeDescriptor,
+          bigqueryField.getSubFields(),
+          fieldValue);
     }
 
     // Convert Hive map to a list of BigQuery structs (proto messages)
@@ -113,7 +117,10 @@ public class ProtoDeserializer {
       for (Map.Entry<?, ?> entry : ((Map<?, ?>) fieldValue).entrySet()) {
         DynamicMessage entryMessage =
             buildSingleRowMessage(
-                kvoi, nestedTypeDescriptor, Arrays.asList(entry.getKey(), entry.getValue()));
+                kvoi,
+                nestedTypeDescriptor,
+                bigqueryField.getSubFields(),
+                Arrays.asList(entry.getKey(), entry.getValue()));
         list.add(entryMessage);
       }
       return list;
@@ -152,16 +159,19 @@ public class ProtoDeserializer {
         return fieldValue;
       }
       Timestamp timestamp = ((TimestampWritableV2) fieldValue).getTimestamp();
-      LocalDateTime utcDateTime = DateTimeUtils.convertToUTC(timestamp);
-      return CivilTimeEncoder.encodePacked64DatetimeMicros(
-          org.threeten.bp.LocalDateTime.of(
-              utcDateTime.getYear(),
-              utcDateTime.getMonthValue(),
-              utcDateTime.getDayOfMonth(),
-              utcDateTime.getHour(),
-              utcDateTime.getMinute(),
-              utcDateTime.getSecond(),
-              utcDateTime.getNano()));
+      if (bigqueryField.getType().getStandardType().equals(StandardSQLTypeName.TIMESTAMP)) {
+        return DateTimeUtils.convertToEpochMicros(
+            timestamp, ZoneId.of("UTC")); // TODO: Make UTC conversion optional via config?
+      } else if (bigqueryField.getType().getStandardType().equals(StandardSQLTypeName.DATETIME)) {
+        return DateTimeUtils.convertToEncodedProtoLongValue(timestamp);
+      } else {
+        throw new RuntimeException(
+            String.format(
+                "Unexpected BigQuery type `%s` for field `%s` with Hive type `%s`",
+                bigqueryField.getType().getStandardType(),
+                bigqueryField.getName(),
+                fieldObjectInspector.getTypeName()));
+      }
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

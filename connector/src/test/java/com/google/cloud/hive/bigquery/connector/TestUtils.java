@@ -60,7 +60,8 @@ public class TestUtils {
   public static String BIGQUERY_ANOTHER_TEST_TABLE_DDL =
       String.join("\n", "num INT64,", "str_val STRING");
 
-  public static String BIGQUERY_TIMESTAMP_TABLE_DDL = "ts TIMESTAMP";
+  public static String BIGQUERY_TIMESTAMP_TABLE_DDL =
+      "ts1 TIMESTAMP, ts2 DATETIME, ts_struct STRUCT<ts3 TIMESTAMP, ts4 DATETIME>";
 
   public static String BIGQUERY_ALL_TYPES_TABLE_DDL =
       String.join(
@@ -83,8 +84,8 @@ public class TestUtils {
           "int_arr ARRAY<int64> OPTIONS (description = 'A description for a ARRAY-BIGINT'),",
           "int_struct_arr ARRAY<STRUCT<i INT64>> OPTIONS (description = 'A description for a"
               + " ARRAY-STRUCT'),",
-          "mixed_struct STRUCT<float_field FLOAT64, ts_field DATETIME> OPTIONS (description = 'A description for a"
-              + " STRUCT-MIXED'),",
+          "mixed_struct STRUCT<float_field FLOAT64, ts_field DATETIME> OPTIONS (description = 'A"
+              + " description for a STRUCT-MIXED'),",
           "mp ARRAY<STRUCT<key STRING, value ARRAY<STRUCT<key STRING, value INT64>>>> OPTIONS"
               + " (description = 'A description for a MAP')");
 
@@ -108,7 +109,8 @@ public class TestUtils {
   public static String HIVE_ANOTHER_TEST_TABLE_DDL =
       String.join("\n", "num BIGINT,", "str_val STRING");
 
-  public static String HIVE_TIMESTAMP_TABLE_DDL = "ts TIMESTAMP";
+  public static String HIVE_TIMESTAMP_TABLE_DDL =
+      "ts1 TIMESTAMP, ts2 TIMESTAMP, ts_struct STRUCT<ts3: TIMESTAMP, ts4: TIMESTAMP>";
 
   public static String HIVE_ALL_TYPES_TABLE_DDL =
       String.join(
@@ -130,7 +132,8 @@ public class TestUtils {
               + " DECIMAL(38,9), big_pi: DECIMAL(38,9)> COMMENT 'A description for a STRUCT',",
           "int_arr ARRAY<BIGINT> COMMENT 'A description for a ARRAY-BIGINT',",
           "int_struct_arr ARRAY<STRUCT<i: BIGINT>> COMMENT 'A description for a ARRAY-STRUCT',",
-          "mixed_struct STRUCT<float_field:FLOAT,ts_field:TIMESTAMP> COMMENT 'A description for a STRUCT-MIXED',",
+          "mixed_struct STRUCT<float_field:FLOAT,ts_field:TIMESTAMP> COMMENT 'A description for a"
+              + " STRUCT-MIXED',",
           "mp MAP<STRING,MAP<STRING,INT>> COMMENT 'A description for a MAP'");
 
   public static String HIVE_FIELD_TIME_PARTITIONED_TABLE_DDL =

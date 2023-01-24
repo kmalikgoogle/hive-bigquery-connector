@@ -15,28 +15,48 @@
  */
 package com.google.cloud.hive.bigquery.connector.utils;
 
+import com.google.cloud.bigquery.storage.v1beta2.CivilTimeEncoder;
 import java.time.*;
 import org.apache.hadoop.hive.common.type.Timestamp;
 
 public class DateTimeUtils {
 
-  public static LocalDateTime convertToUTC(Timestamp ts) {
-    LocalDateTime localDateTime =
-        LocalDateTime.of(
-            ts.getYear(),
-            ts.getMonth(),
-            ts.getDay(),
-            ts.getHours(),
-            ts.getMinutes(),
-            ts.getSeconds(),
-            ts.getNanos());
-    return localDateTime
-        .atZone(ZoneId.systemDefault())
-        .withZoneSameInstant(ZoneId.of("UTC"))
-        .toLocalDateTime();
+  public static long convertToEpochMicros(Timestamp timestamp) {
+    return convertToEpochMicros(timestamp, null);
   }
 
-  public static Timestamp convertToHiveTimestamp(long utc) {
+  public static long convertToEpochMicros(Timestamp timestamp, ZoneId zoneId) {
+    LocalDateTime localDateTime =
+        LocalDateTime.of(
+            timestamp.getYear(),
+            timestamp.getMonth(),
+            timestamp.getDay(),
+            timestamp.getHours(),
+            timestamp.getMinutes(),
+            timestamp.getSeconds(),
+            timestamp.getNanos());
+    ZonedDateTime zonedDateTime;
+    if (zoneId == null) {
+      zonedDateTime = localDateTime.atZone(ZoneId.of("UTC"));
+    } else {
+      zonedDateTime = localDateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(zoneId);
+    }
+    return zonedDateTime.toEpochSecond() * 1_000_000 + zonedDateTime.getNano() / 1_000;
+  }
+
+  public static long convertToEncodedProtoLongValue(Timestamp timestamp) {
+    return CivilTimeEncoder.encodePacked64DatetimeMicros(
+        org.threeten.bp.LocalDateTime.of(
+            timestamp.getYear(),
+            timestamp.getMonth(),
+            timestamp.getDay(),
+            timestamp.getHours(),
+            timestamp.getMinutes(),
+            timestamp.getSeconds(),
+            timestamp.getNanos()));
+  }
+
+  public static Timestamp convertFromUTC(long utc) {
     long seconds = utc / 1_000_000;
     int nanos = (int) (utc % 1_000_000) * 1_000;
     ZonedDateTime utcDateTime = Instant.ofEpochSecond(seconds, nanos).atZone(ZoneId.of("UTC"));
@@ -46,14 +66,8 @@ public class DateTimeUtils {
         localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
   }
 
-  public static Timestamp convertToSystemTimeZone(LocalDateTime utcLocalDateTime) {
-    LocalDateTime localDateTime =
-        utcLocalDateTime
-            .atZone(ZoneId.of("UTC"))
-            .withZoneSameInstant(ZoneId.systemDefault())
-            .toLocalDateTime();
+  public static Timestamp convertToHiveTimestamp(LocalDateTime localDateTime) {
     return Timestamp.ofEpochSecond(
         localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
   }
-
 }

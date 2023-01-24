@@ -24,12 +24,9 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
@@ -113,20 +110,14 @@ public class AvroSerializer {
     if (objectInspector instanceof TimestampObjectInspector) {
       // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
       if (avroObject instanceof Utf8) { // BigQuery DATETIME
-        LocalDateTime utcLocalDateTime = LocalDateTime.parse(((Utf8) avroObject).toString());
-        LocalDateTime localDateTime =
-            utcLocalDateTime
-                .atZone(ZoneId.of("UTC"))
-                .withZoneSameInstant(ZoneId.systemDefault())
-                .toLocalDateTime();
-        TimestampWritableV2 timestamp = new TimestampWritableV2();
-        timestamp.setInternal(
-            TimeUnit.SECONDS.toMillis(localDateTime.toEpochSecond(ZoneOffset.UTC)),
-            localDateTime.getNano());
-        return timestamp;
+        LocalDateTime localDateTime = LocalDateTime.parse(((Utf8) avroObject).toString());
+        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
+        TimestampWritableV2 timestampWritable = new TimestampWritableV2();
+        timestampWritable.setInternal(timestamp.toEpochMilli(), timestamp.getNanos());
+        return timestampWritable;
       }
       if (avroObject instanceof Long) { // BigQuery TIMESTAMP
-        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp((long) avroObject);
+        Timestamp timestamp = DateTimeUtils.convertFromUTC((long) avroObject);
         return new TimestampWritableV2(timestamp);
       }
     }

@@ -111,9 +111,57 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
 
   // ---------------------------------------------------------------------------------------------------
 
+  /** Check that we can write to both the BigQuery TIMESTAMP and DATETIME types. */
+  @CartesianTest
+  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
+  public void testWriteTimestampAndDatetime(
+      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
+      @CartesianTest.Values(
+              strings = {
+                HiveBigQueryConfig.WRITE_METHOD_DIRECT,
+                HiveBigQueryConfig.WRITE_METHOD_INDIRECT
+              })
+          String writeMethod) {
+    hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
+    initHive(engine, HiveBigQueryConfig.AVRO);
+    // Create the tables
+    createExternalTable(
+        TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
+    // Insert data using Hive
+    String hiveTimestampValue =
+        "CAST(\"2000-01-01T00:23:45.123456\" AS TIMESTAMP)"; // Assuming: (Pacific/Honolulu, -10:00)
+    runHiveScript(
+        String.join(
+            "\n",
+            "INSERT INTO " + TIMESTAMP_TABLE_NAME + " SELECT",
+            hiveTimestampValue + ",",
+            hiveTimestampValue + ",",
+            "NAMED_STRUCT(",
+            "  'ts3', " + hiveTimestampValue + ",",
+            "  'ts4', " + hiveTimestampValue,
+            ")"));
+    // Read the data using the BQ SDK
+    TableResult result =
+        runBqQuery(String.format("SELECT * FROM `${dataset}.%s`", TIMESTAMP_TABLE_NAME));
+    // Verify we get the expected values
+    assertEquals(1, result.getTotalRows());
+    List<FieldValueList> rows = Streams.stream(result.iterateAll()).collect(Collectors.toList());
+    FieldValueList row = rows.get(0);
+    assertEquals("2000-01-01T10:23:45.123456Z", row.get(0).getTimestampInstant().toString()); // UTC
+    assertEquals("2000-01-01T00:23:45.123456", row.get(1).getStringValue()); // Unchanged
+    assertEquals(
+        "2000-01-01T10:23:45.123456Z", // UTC
+        row.get(2).getRecordValue().get("ts3").getTimestampInstant().toString());
+    assertEquals(
+        "2000-01-01T00:23:45.123456", // Unchanged
+        row.get(2).getRecordValue().get("ts4").getStringValue());
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+
   /** Check that we can write all types of data to BigQuery. */
   @CartesianTest
-  @DefaultTimeZone("HST") // Hawaii Standard Time (10 hours behind UTC)
+  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
   public void testWriteAllTypes(
       @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
       @CartesianTest.Values(
@@ -153,7 +201,8 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
             "),",
             "ARRAY(CAST (1 AS BIGINT), CAST (2 AS BIGINT), CAST (3 AS" + " BIGINT)),",
             "ARRAY(NAMED_STRUCT('i', CAST (1 AS BIGINT))),",
-            "NAMED_STRUCT('float_field', CAST(4.2 AS FLOAT), 'ts_field', CAST (\"2019-03-18T01:23:45.678901\" AS TIMESTAMP)),",
+            "NAMED_STRUCT('float_field', CAST(4.2 AS FLOAT), 'ts_field', CAST"
+                + " (\"2019-03-18T01:23:45.678901\" AS TIMESTAMP)),",
             "MAP('mykey', MAP('subkey', 999))",
             "FROM (select '1') t"));
     // Read the data using the BQ SDK
@@ -173,7 +222,7 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
     assertEquals("var char", row.get(6).getStringValue());
     assertEquals("string", row.get(7).getStringValue());
     assertEquals("2019-03-18", row.get(8).getStringValue());
-    assertEquals("2019-03-18T11:23:45.678901", row.get(9).getStringValue()); // UTC time
+    assertEquals("2019-03-18T01:23:45.678901", row.get(9).getStringValue());
     assertArrayEquals("bytes".getBytes(), row.get(10).getBytesValue());
     assertEquals(2.0, row.get(11).getDoubleValue());
     assertEquals(4.2, row.get(12).getDoubleValue());
@@ -202,9 +251,7 @@ public class WriteIntegrationtests extends IntegrationTestsBase {
     assertEquals(
         4.199999809265137,
         struct.get("float_field").getDoubleValue()); // TODO: Address discrepancy here
-    assertEquals(
-        "2019-03-18T11:23:45.678901",
-        struct.get("ts_field").getStringValue());
+    assertEquals("2019-03-18T01:23:45.678901", struct.get("ts_field").getStringValue());
     // Check the Map type
     FieldValueList map = (FieldValueList) row.get(17).getRepeatedValue();
     assertEquals(1, map.size());

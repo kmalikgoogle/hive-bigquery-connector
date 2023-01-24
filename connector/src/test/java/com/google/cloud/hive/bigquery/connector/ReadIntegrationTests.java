@@ -347,36 +347,46 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
 
   // ---------------------------------------------------------------------------------------------------
 
-  /** Check that we can read the BigQuery TIMESTAMP type. */
+  /** Check that we can read both the BigQuery TIMESTAMP and DATETIME types. */
   @CartesianTest
-  @DefaultTimeZone("HST") // Hawaii Standard Time (Pacific/Honolulu) (10 hours behind UTC)
-  public void testReadBQTimestamp(
+  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
+  public void testReadTimestampAndDatetime(
       @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
           String readDataFormat)
       throws IOException {
     initHive("tez", readDataFormat);
-    // Create the BQ table
-    createExternalTable(TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
-    // Insert timestamp with an explicit timezone into the BQ table using the BQ SDK
+    // Create the tables
+    createExternalTable(
+        TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
+    // Insert data using the BQ SDK
     runBqQuery(
-        String.join("\n",
-                "INSERT `${dataset}." + TIMESTAMP_TABLE_NAME + "` VALUES (",
-                "cast(\"2019-03-18T11:23:45.678901+13\" as timestamp)", // +13:00 (Pacific/Auckland)
-                ")"
-        ));
+        String.join(
+            "\n",
+            "INSERT `${dataset}." + TIMESTAMP_TABLE_NAME + "` VALUES (",
+            "cast(\"2000-01-01T00:23:45.123456+13\" as TIMESTAMP),", // (Pacific/Auckland, +13:00)
+            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME),", // Wall clock (no timezone)
+            "struct(cast(\"2000-01-01T00:23:45.123456+13\" as TIMESTAMP)," // (Pacific/Auckland,
+                // +13:00)
+                + " cast(\"2000-01-01T00:23:45.123456\" as DATETIME))", // Wall clock (no timezone)
+            ")"));
     // Read the data using Hive
     List<Object[]> rows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
     assertEquals(1, rows.size());
     Object[] row = rows.get(0);
-    assertEquals(1, row.length); // Number of columns
-    assertEquals("2019-03-17 12:23:45.678901", row[0]);
+    assertEquals(3, row.length); // Number of columns
+    assertEquals("1999-12-31 01:23:45.123456", row[0]); // (Pacific/Honolulu, -10:00)
+    assertEquals("2000-01-01 00:23:45.123456", row[1]); // Unchanged
+    assertEquals(
+        row[2],
+        "{\"ts3\":\"1999-12-31 01:23:45.123456\"," // (Pacific/Honolulu, -10:00)
+            + "\"ts4\":\"2000-01-01 00:23:45.123456\"}"); // Unchanged
   }
 
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read all types of data from BigQuery. */
   @CartesianTest
-  @DefaultTimeZone("HST") // Hawaii Standard Time (Pacific/Honolulu) (10 hours behind UTC)
+  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
   public void testReadAllTypes(
       @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
           String readDataFormat)
@@ -398,7 +408,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
             "\"var char\",",
             "\"string\",",
             "cast(\"2019-03-18\" as date),",
-            "cast(\"2019-03-18T11:23:45.678901\" as datetime),",
+            "cast(\"2019-03-18 11:23:45.678901\" as datetime),",
             "cast(\"bytes\" as bytes),",
             "2.0,",
             "4.2,",
@@ -410,7 +420,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
             "),",
             "[1, 2, 3],",
             "[(select as struct 111), (select as struct 222), (select as struct 333)],",
-            "struct(4.2, cast(\"2019-03-18T11:23:45.678901\" as datetime)),",
+            "struct(4.2, cast(\"2019-03-18 11:23:45.678901\" as datetime)),",
             "[struct('a_key', [struct('a_subkey', 888)]), struct('b_key', [struct('b_subkey',"
                 + " 999)])]",
             ")"));
@@ -428,7 +438,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
     assertEquals("var char", row[6]);
     assertEquals("string", row[7]);
     assertEquals("2019-03-18", row[8]);
-    assertEquals("2019-03-18 01:23:45.678901", row[9]);
+    assertEquals("2019-03-18 11:23:45.678901", row[9]);
     assertArrayEquals("bytes".getBytes(), (byte[]) row[10]);
     assertEquals(2.0, row[11]);
     assertEquals(4.2, row[12]);
@@ -437,7 +447,7 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
         row[13]);
     assertEquals("[1,2,3]", row[14]);
     assertEquals("[{\"i\":111},{\"i\":222},{\"i\":333}]", row[15]);
-    assertEquals("{\"float_field\":4.2,\"ts_field\":\"2019-03-18 01:23:45.678901\"}", row[16]);
+    assertEquals("{\"float_field\":4.2,\"ts_field\":\"2019-03-18 11:23:45.678901\"}", row[16]);
     // Map type
     ObjectMapper mapper = new ObjectMapper();
     TypeReference<HashMap<String, HashMap<String, Integer>>> typeRef =

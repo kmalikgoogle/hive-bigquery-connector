@@ -15,7 +15,6 @@
  */
 package com.google.cloud.hive.bigquery.connector.input;
 
-import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.hadoop.hive.common.type.HiveIntervalDayTime;
@@ -64,8 +63,16 @@ public class BigQueryConstantDesc extends ExprNodeConstantDesc {
     }
     if (typeInfo.getTypeName().equals("timestamp")) {
       Timestamp timestamp = (Timestamp) value;
-      LocalDateTime utcDateTime = DateTimeUtils.convertToUTC(timestamp);
-      return "DATETIME'" + utcDateTime + "'";
+      LocalDateTime localDateTime =
+          LocalDateTime.of(
+              timestamp.getYear(),
+              timestamp.getMonth(),
+              timestamp.getDay(),
+              timestamp.getHours(),
+              timestamp.getMinutes(),
+              timestamp.getSeconds(),
+              timestamp.getNanos());
+      return "DATETIME'" + localDateTime + "'";
     }
     if (typeInfo.getTypeName().equals("interval_day_time")) {
       HiveIntervalDayTime intervalDayTime = (HiveIntervalDayTime) value;

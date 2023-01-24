@@ -15,16 +15,14 @@
  */
 package com.google.cloud.hive.bigquery.connector.output.indirect;
 
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.avro.AvroSchemaInfo;
 import com.google.cloud.hive.bigquery.connector.utils.avro.AvroUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -44,24 +42,25 @@ public class AvroDeserializer {
    * Converts the given Hive-serialized object into an Avro record, so it can later be written to
    * GCS and then loaded into BigQuery via the File Load API.
    */
-  public static Record buildSingleRecord(StructObjectInspector soi, Schema schema, Object object) {
-    Record record = new Record(schema);
+  public static Record buildSingleRecord(
+      StructObjectInspector soi, Schema avroSchema, Object object) {
+    Record record = new Record(avroSchema);
     List<? extends StructField> allStructFieldRefs = soi.getAllStructFieldRefs();
     List<Object> structFieldsDataAsList = soi.getStructFieldsDataAsList(object);
-    for (int fieldIndex = 0; fieldIndex < schema.getFields().size(); fieldIndex++) {
+    for (int fieldIndex = 0; fieldIndex < avroSchema.getFields().size(); fieldIndex++) {
       Object hiveValue = structFieldsDataAsList.get(fieldIndex);
       ObjectInspector fieldObjectInspector =
           allStructFieldRefs.get(fieldIndex).getFieldObjectInspector();
       String fieldName = allStructFieldRefs.get(fieldIndex).getFieldName();
-      Schema fieldSchema = schema.getField(fieldName).schema();
-      Object avroValue = convertHiveValueToAvroValue(fieldObjectInspector, hiveValue, fieldSchema);
+      Schema fieldSchema = avroSchema.getField(fieldName).schema();
+      Object avroValue = convertHiveValueToAvroValue(fieldObjectInspector, fieldSchema, hiveValue);
       record.put(fieldIndex, avroValue);
     }
     return record;
   }
 
   private static Object convertHiveValueToAvroValue(
-      ObjectInspector fieldObjectInspector, Object fieldValue, Schema fieldSchema) {
+      ObjectInspector fieldObjectInspector, Schema fieldSchema, Object fieldValue) {
     if (fieldValue == null) {
       return null;
     }
@@ -77,7 +76,7 @@ public class AvroDeserializer {
       while (iterator.hasNext()) {
         Object elementValue = iterator.next();
         Object converted =
-            convertHiveValueToAvroValue(elementObjectInspector, elementValue, elementSchema);
+            convertHiveValueToAvroValue(elementObjectInspector, elementSchema, elementValue);
         array.add(converted);
       }
       return array;
@@ -104,7 +103,7 @@ public class AvroDeserializer {
         Object key = entry.getKey().toString();
         Object convertedValue =
             convertHiveValueToAvroValue(
-                moi.getMapValueObjectInspector(), entry.getValue(), valueSchema);
+                moi.getMapValueObjectInspector(), valueSchema, entry.getValue());
         record.put(KeyValueObjectInspector.KEY_FIELD_NAME, key);
         record.put(KeyValueObjectInspector.VALUE_FIELD_NAME, convertedValue);
         array.add(record);
@@ -144,25 +143,18 @@ public class AvroDeserializer {
       if (fieldValue instanceof Long) {
         return fieldValue;
       }
-      Timestamp ts = ((TimestampWritableV2) fieldValue).getTimestamp();
-      ZonedDateTime localDateTime =
-          LocalDateTime.of(
-                  ts.getYear(),
-                  ts.getMonth(),
-                  ts.getDay(),
-                  ts.getHours(),
-                  ts.getMinutes(),
-                  ts.getSeconds(),
-                  ts.getNanos())
-              .atZone(ZoneId.systemDefault());
+      Timestamp timestamp = ((TimestampWritableV2) fieldValue).getTimestamp();
       JsonNode logicalType = schemaInfo.getActualSchema().getJsonProp("logicalType");
       if (logicalType != null) {
-        if (logicalType.asText().equals("timestamp-millis")) {
-          return TimeUnit.SECONDS.toMicros(localDateTime.toEpochSecond());
+        if (logicalType.asText().equals("timestamp-micros")) {
+          return DateTimeUtils.convertToEpochMicros(
+              timestamp, ZoneId.of("UTC")); // TODO: Make UTC conversion optional via config?
+        } else if (logicalType.asText().equals("local-timestamp-micros")) {
+          return DateTimeUtils.convertToEpochMicros(timestamp);
         }
       }
-      return TimeUnit.SECONDS.toMicros(localDateTime.toEpochSecond())
-          + TimeUnit.NANOSECONDS.toMicros(localDateTime.getNano());
+      throw new RuntimeException(
+          "Unsupported timestamp type: " + schemaInfo.getActualSchema().toString());
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

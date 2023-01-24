@@ -20,7 +20,6 @@ import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspect
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
@@ -172,17 +171,20 @@ public class ArrowSerializer {
     }
 
     if (objectInspector instanceof TimestampObjectInspector) {
-      // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
+      // Convert the BigQuery TIMESTAMP or DATETIME to a Hive TIMESTAMP
       Timestamp timestamp;
       if (value instanceof TimeStampMicroVector) { // BigQuery DATETIME
-        LocalDateTime utcLocalDateTime = ((TimeStampMicroVector) value).getObject(rowId);
-        timestamp = DateTimeUtils.convertToSystemTimeZone(utcLocalDateTime);
+        LocalDateTime localDateTime = ((TimeStampMicroVector) value).getObject(rowId);
+        timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
       } else if (value instanceof TimeStampMicroTZVector) { // BigQuery TIMESTAMP
         long longValue = ((TimeStampMicroTZVector) value).get(rowId);
-        timestamp = DateTimeUtils.convertToHiveTimestamp(longValue);
-      } else if (value instanceof LocalDateTime) {
-        LocalDateTime utcLocalDateTime = (LocalDateTime) value;
-        timestamp = DateTimeUtils.convertToSystemTimeZone(utcLocalDateTime);
+        timestamp = DateTimeUtils.convertFromUTC(longValue);
+      } else if (value instanceof LocalDateTime) { // BigQuery DATETIME inside a STRUCT
+        LocalDateTime localDateTime = (LocalDateTime) value;
+        timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
+      } else if (value instanceof Long) { // BigQuery TIMESTAMP inside a STRUCT
+        long longValue = (Long) value;
+        timestamp = DateTimeUtils.convertFromUTC(longValue);
       } else {
         throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());
       }
