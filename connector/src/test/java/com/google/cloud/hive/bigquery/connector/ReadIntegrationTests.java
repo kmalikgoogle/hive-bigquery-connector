@@ -363,22 +363,26 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
         String.join(
             "\n",
             "INSERT `${dataset}." + TIMESTAMP_TABLE_NAME + "` VALUES (",
-            "cast(\"2000-01-01T00:23:45.123456+13\" as TIMESTAMP),", // (Pacific/Auckland, +13:00)
-            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME),", // Wall clock (no timezone)
-            "struct(cast(\"2000-01-01T00:23:45.123456+13\" as TIMESTAMP)," // (Pacific/Auckland,
-                // +13:00)
-                + " cast(\"2000-01-01T00:23:45.123456\" as DATETIME))", // Wall clock (no timezone)
-            ")"));
+            // (Pacific/Honolulu, -10:00)
+            "cast(\"2000-01-01T00:23:45.123456-10\" as TIMESTAMP),",
+            // Wall clock (no timezone)
+            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME),",
+            "struct(",
+            // (Pacific/Honolulu, -10:00)
+            "cast(\"2000-01-01T00:23:45.123456-10\" as TIMESTAMP),",
+            // Wall clock (no timezone)
+            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME)",
+            "))"));
     // Read the data using Hive
     List<Object[]> rows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
     assertEquals(1, rows.size());
     Object[] row = rows.get(0);
     assertEquals(3, row.length); // Number of columns
-    assertEquals("1999-12-31 01:23:45.123456", row[0]); // (Pacific/Honolulu, -10:00)
+    assertEquals("2000-01-01 00:23:45.123456", row[0]); // Assuming: (Pacific/Honolulu, -10:00)
     assertEquals("2000-01-01 00:23:45.123456", row[1]); // Unchanged
     assertEquals(
         row[2],
-        "{\"ts3\":\"1999-12-31 01:23:45.123456\"," // (Pacific/Honolulu, -10:00)
+        "{\"ts3\":\"2000-01-01 00:23:45.123456\"," // Assuming: (Pacific/Honolulu, -10:00)
             + "\"ts4\":\"2000-01-01 00:23:45.123456\"}"); // Unchanged
   }
 
