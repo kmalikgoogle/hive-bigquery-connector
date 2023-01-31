@@ -22,6 +22,6 @@ public class BigQueryUDFMod extends BigQueryUDFBase {
 
   @Override
   public String getDisplayString(String[] children) {
-    return String.format("MOD(%s,%s)", children[0], children[1]);
+    return String.format("MOD(CAST(%s AS NUMERIC),CAST(%s AS NUMERIC))", children[0], children[1]);
   }
 }

@@ -453,7 +453,8 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
             "select * from " + ALL_TYPES_TABLE_NAME + " where date_add(day, 2) > date('2001-01-01')",
             "select * from " + ALL_TYPES_TABLE_NAME + " where str RLIKE '^([0-9]|[a-z]|[A-Z])'",
             "select * from " + ALL_TYPES_TABLE_NAME + " where ((big_int_val / 2.0) = 1.0)",
-            "select * from " + ALL_TYPES_TABLE_NAME + " where ((big_int_val % 2) = 1)"
+            "select * from " + ALL_TYPES_TABLE_NAME + " where ((big_int_val % 2) = 1)",
+            "select * from " + ALL_TYPES_TABLE_NAME + " where ((UDFToDouble(int_val) / 2.0) = 0.0)"
     };
     for (String query : queries) {
       runHiveStatement(query);
@@ -461,6 +462,28 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   }
 
   // ---------------------------------------------------------------------------------------------------
+  @Test
+  public void testUDFWhereClauseForDoubleFloatSmoke() {
+    // Create the BQ table
+    runBqQuery(BIGQUERY_ALL_TYPES_TABLE_CREATE_QUERY);
+    // Read the data using Hive
+    initHive("tez", HiveBigQueryConfig.ARROW);
+    runHiveScript(HIVE_ALL_TYPES_TABLE_CREATE_QUERY);
+    String[] queries = {
+            "select CAST(tiny_int_val as int),CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where (((dbl%1)-2)=21) ",
+            "select CAST(tiny_int_val as int),CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where (((fl%1)-2)=21)  ",
+            "select dbl+2.0D,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where dbl+2.0D=2 ",
+            "select tiny_int_val%2.0D,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where dbl+2.0D=2 or (((dbl%1)-2)=21) "
+
+    };
+   // runBqQuery(String.format("SELECT tiny_int_val+2,tiny_int_val/2 FROM `${dataset}.%s`", ALL_TYPES_TABLE_NAME));
+
+    for (String query : queries) {
+      runHiveStatement(query);
+    }
+  }
+
+
 
   /** Test the "RLIKE" expression */
   @CartesianTest
