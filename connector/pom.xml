@@ -80,16 +80,16 @@
     <!-- ******* Testing dependencies ******* -->
 
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
-      <groupId>io.github.hiverunner</groupId>
-      <artifactId>hiverunner</artifactId>
-      <version>${hiverunner.version}</version>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -97,6 +97,13 @@
       <groupId>org.junit-pioneer</groupId>
       <artifactId>junit-pioneer</artifactId>
       <version>${junit-pioneer.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.github.hiverunner</groupId>
+      <artifactId>hiverunner</artifactId>
+      <version>${hiverunner.version}</version>
       <scope>test</scope>
     </dependency>
 

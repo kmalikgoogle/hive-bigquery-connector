@@ -28,8 +28,9 @@ import java.util.List;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.DefaultTimeZone;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 
 public class ReadIntegrationTests extends IntegrationTestsBase {
 
@@ -37,11 +38,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
    * Check that attempting to read a table that doesn't exist fails gracefully with a useful error
    * message
    */
-  @CartesianTest
-  public void testReadNonExistingTable(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testReadNonExistingTable(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     // Make sure the table doesn't exist in BigQuery
     dropBqTableIfExists(dataset, TEST_TABLE_NAME);
@@ -64,11 +63,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // -----------------------------------------------------------------------------------------------
 
   /** Check that reading an empty BQ table actually returns 0 results. */
-  @CartesianTest
-  public void testReadEmptyTable(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testReadEmptyTable(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     List<Object[]> rows = runHiveStatement(String.format("SELECT * FROM %s", TEST_TABLE_NAME));
@@ -78,11 +75,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test the WHERE clause */
-  @CartesianTest
-  public void testWhereClause(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testWhereClause(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     // Insert data into BQ using the BQ SDK
@@ -108,11 +103,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test the `SELECT` statement with explicit columns (i.e. not `SELECT *`) */
-  @CartesianTest
-  public void testSelectExplicitColumns(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testSelectExplicitColumns(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     // Insert data into BQ using the BQ SDK
@@ -176,11 +169,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test the "SELECT COUNT(*)" statement. */
-  @CartesianTest
-  public void testCount(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testCount(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     // Create some initial data in BQ
@@ -200,11 +191,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read a Hive Map type from BigQuery. */
-  @CartesianTest
-  public void testMapOfInts(
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat)
-      throws IOException {
+  @ParameterizedTest
+  @MethodSource(READ_FORMAT)
+  public void testMapOfInts(String readDataFormat) throws IOException {
     initHive("tez", readDataFormat);
     createExternalTable(
         "mapOfInts",
@@ -254,11 +243,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read a Hive Map of structs from BigQuery. */
-  @CartesianTest
-  public void testMapOfStructs(
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat)
-      throws IOException {
+  @ParameterizedTest
+  @MethodSource(READ_FORMAT)
+  public void testMapOfStructs(String readDataFormat) throws IOException {
     initHive("tez", readDataFormat);
     createExternalTable(
         "mapOfStructs",
@@ -307,11 +294,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read a Hive Map of arrays from BigQuery. */
-  @CartesianTest
-  public void testMapOfArrays(
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat)
-      throws IOException {
+  @ParameterizedTest
+  @MethodSource(READ_FORMAT)
+  public void testMapOfArrays(String readDataFormat) throws IOException {
     initHive("tez", readDataFormat);
     createExternalTable(
         "mapOfArrays",
@@ -348,12 +333,10 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read both the BigQuery TIMESTAMP and DATETIME types. */
-  @CartesianTest
+  @ParameterizedTest
+  @MethodSource(READ_FORMAT)
   @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
-  public void testReadTimestampAndDatetime(
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat)
-      throws IOException {
+  public void testReadTimestampAndDatetime(String readDataFormat) throws IOException {
     initHive("tez", readDataFormat);
     // Create the tables
     createExternalTable(
@@ -389,12 +372,10 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can read all types of data from BigQuery. */
-  @CartesianTest
+  @ParameterizedTest
+  @MethodSource(READ_FORMAT)
   @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
-  public void testReadAllTypes(
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat)
-      throws IOException {
+  public void testReadAllTypes(String readDataFormat) throws IOException {
     initHive("tez", readDataFormat);
     createExternalTable(
         ALL_TYPES_TABLE_NAME, HIVE_ALL_TYPES_TABLE_DDL, BIGQUERY_ALL_TYPES_TABLE_DDL);
@@ -505,11 +486,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test the "RLIKE" expression */
-  @CartesianTest
-  public void testSelectWithWhereRlikeFilter(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testSelectWithWhereRlikeFilter(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     // Create some initial data in BQ
@@ -534,11 +513,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Join two tables */
-  @CartesianTest
-  public void testInnerJoin(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testInnerJoin(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     createExternalTable(
@@ -579,11 +556,9 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Read from multiple tables in the same query. */
-  @CartesianTest
-  public void testMultiRead(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT)
+  public void testMultiRead(String engine, String readDataFormat) {
     initHive(engine, readDataFormat);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
     createExternalTable(

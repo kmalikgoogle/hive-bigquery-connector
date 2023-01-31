@@ -25,8 +25,9 @@ import com.google.cloud.hive.bigquery.connector.config.HiveBigQueryConfig;
 import com.google.cloud.storage.Blob;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.DefaultTimeZone;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import repackaged.by.hivebqconnector.com.google.common.collect.Streams;
 
 public class WriteIntegrationTests extends IntegrationTestsBase {
@@ -51,16 +52,18 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
   }
 
   /** Insert data using the "direct" write method. */
-  @CartesianTest
-  public void testInsertDirect(@CartesianTest.Values(strings = {"mr", "tez"}) String engine) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE)
+  public void testInsertDirect(String engine) {
     insert(engine, HiveBigQueryConfig.WRITE_METHOD_DIRECT);
   }
 
   // ---------------------------------------------------------------------------------------------------
 
   /** Insert data using the "indirect" write method. */
-  @CartesianTest
-  public void testInsertIndirect(@CartesianTest.Values(strings = {"mr", "tez"}) String engine) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE)
+  public void testInsertIndirect(String engine) {
     // Check that the bucket is empty
     List<Blob> blobs = getBlobs(getIndirectWriteBucket());
     assertEquals(0, blobs.size());
@@ -79,15 +82,9 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test the "INSERT OVERWRITE" statement, which clears the table before writing the new data. */
-  @CartesianTest
-  public void testInsertOverwrite(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(
-              strings = {
-                HiveBigQueryConfig.WRITE_METHOD_DIRECT,
-                HiveBigQueryConfig.WRITE_METHOD_INDIRECT
-              })
-          String writeMethod) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_WRITE_METHOD)
+  public void testInsertOverwrite(String engine, String writeMethod) {
     hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
     initHive(engine, HiveBigQueryConfig.AVRO);
     createExternalTable(TEST_TABLE_NAME, HIVE_TEST_TABLE_DDL, BIGQUERY_TEST_TABLE_DDL);
@@ -112,16 +109,10 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can write to both the BigQuery TIMESTAMP and DATETIME types. */
-  @CartesianTest
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_WRITE_METHOD)
   @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
-  public void testWriteTimestampAndDatetime(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(
-              strings = {
-                HiveBigQueryConfig.WRITE_METHOD_DIRECT,
-                HiveBigQueryConfig.WRITE_METHOD_INDIRECT
-              })
-          String writeMethod) {
+  public void testWriteTimestampAndDatetime(String engine, String writeMethod) {
     hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
     initHive(engine, HiveBigQueryConfig.AVRO);
     // Create the tables
@@ -160,16 +151,10 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can write all types of data to BigQuery. */
-  @CartesianTest
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_WRITE_METHOD)
   @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
-  public void testWriteAllTypes(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(
-              strings = {
-                HiveBigQueryConfig.WRITE_METHOD_DIRECT,
-                HiveBigQueryConfig.WRITE_METHOD_INDIRECT
-              })
-          String writeMethod) {
+  public void testWriteAllTypes(String engine, String writeMethod) {
     hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
     initHive(engine, HiveBigQueryConfig.AVRO);
     // Create the BQ table
@@ -266,17 +251,9 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
   // ---------------------------------------------------------------------------------------------------
 
   /** Test a write operation and multiple read operations in the same query. */
-  @CartesianTest
-  public void testMultiReadWrite(
-      @CartesianTest.Values(strings = {"mr", "tez"}) String engine,
-      @CartesianTest.Values(strings = {HiveBigQueryConfig.ARROW, HiveBigQueryConfig.AVRO})
-          String readDataFormat,
-      @CartesianTest.Values(
-              strings = {
-                HiveBigQueryConfig.WRITE_METHOD_DIRECT,
-                HiveBigQueryConfig.WRITE_METHOD_INDIRECT
-              })
-          String writeMethod) {
+  @ParameterizedTest
+  @MethodSource(EXECUTION_ENGINE_READ_FORMAT_WRITE_METHOD)
+  public void testMultiReadWrite(String engine, String readDataFormat, String writeMethod) {
     hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
     initHive(engine, readDataFormat);
     createExternalTable(
