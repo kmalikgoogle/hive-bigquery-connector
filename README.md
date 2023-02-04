@@ -217,31 +217,45 @@ You can set the following Hive/Hadoop configuration properties in your environme
 
 Add links to Hive & BQ types doc.
 
-| Hive        | Hive type description                                                                             | BigQuery                  | BigQuery type description                                                                                                                        |
-|-------------|---------------------------------------------------------------------------------------------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TINYINT`   | 1-byte signed integer                                                                             | `INT64`                   |                                                                                                                                                  |
-| `SMALLINT`  | 2-byte signed integer                                                                             | `INT64`                   |                                                                                                                                                  |
-| `INT`       | 4-byte signed integer                                                                             | `INT64`                   |                                                                                                                                                  |
-| `BIGINT`    | 8-byte signed integer                                                                             | `INT64`                   |                                                                                                                                                  |
-| `FLOAT`     | 4-byte single precision floating point number                                                     | `FLOAT64`                 |                                                                                                                                                  |
-| `DOUBLE`    | 8-byte double precision floating point number                                                     | `FLOAT64`                 |                                                                                                                                                  |
-| `DECIMAL`   | Alias of `NUMERIC`. Precision: 38. Scale: 38                                                      | `DECIMAL`                 | Alias of `NUMERIC`                                                                                                                               |
-| `DATE`      | Format: `YYYY-MM-DD`                                                                              | `DATE`                    | Format: `YYYY-[M]M-[D]D`. Supported range: 0001-01-01 to 9999-12-31                                                                              |
-| `TIMESTAMP` | Timezone-less and stored as an offset from the UNIX epoch.                                        | `DATETIME` or `TIMESTAMP` | See more details below                                                                                                                           |
-| `BOOLEAN`   | Boolean values are represented by the keywords TRUE and FALSE                                     | `BOOLEAN`                 |                                                                                                                                                  |
-| `CHAR`      | Variable-length character data                                                                    | `STRING`                  |                                                                                                                                                  |
-| `VARCHAR`   | Variable-length character data                                                                    | `STRING`                  |                                                                                                                                                  |
-| `STRING`    | Variable-length character data                                                                    | `STRING`                  |                                                                                                                                                  |
-| `BINARY`    | Variable-length binary data                                                                       | `BYTES`                   |                                                                                                                                                  |
-| `ARRAY`     | Represents repeated values                                                                        | `ARRAY`                   |                                                                                                                                                  |
-| `STRUCT`    | Represents nested structures                                                                      | `STRUCT`                  |                                                                                                                                                  |
-| `MAP`       | Dictionary of keys and values. Keys must be of primitive type, whereas values can be of any type. | `ARRAY<STRUCT>`           | BigQuery doesn't support Maps natively. The connector implements it as a list of structs, where each struct has two columns: `name` and `value`. |
+| Hive               | Hive type description                                                                             | BigQuery        | BigQuery type description                                                                                                                        |
+|--------------------|---------------------------------------------------------------------------------------------------|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `TINYINT`          | 1-byte signed integer                                                                             | `INT64`         |                                                                                                                                                  |
+| `SMALLINT`         | 2-byte signed integer                                                                             | `INT64`         |                                                                                                                                                  |
+| `INT`              | 4-byte signed integer                                                                             | `INT64`         |                                                                                                                                                  |
+| `BIGINT`           | 8-byte signed integer                                                                             | `INT64`         |                                                                                                                                                  |
+| `FLOAT`            | 4-byte single precision floating point number                                                     | `FLOAT64`       |                                                                                                                                                  |
+| `DOUBLE`           | 8-byte double precision floating point number                                                     | `FLOAT64`       |                                                                                                                                                  |
+| `DECIMAL`          | Alias of `NUMERIC`. Precision: 38. Scale: 38                                                      | `DECIMAL`       | Alias of `NUMERIC`                                                                                                                               |
+| `DATE`             | Format: `YYYY-MM-DD`                                                                              | `DATE`          | Format: `YYYY-[M]M-[D]D`. Supported range: 0001-01-01 to 9999-12-31                                                                              |
+| `TIMESTAMP`        | Timezone-less timestamp stored as an offset from the UNIX epoch                                   | `DATETIME`      | A date and time, as they might be displayed on a watch, independent of time zone.                                                                |
+| `TIMESTAMPLOCALTZ` | Timezoned timestamp stored as an offset from the UNIX epoch                                       | `TIMESTAMP`     | Absolute point in time, independent of any time zone or convention such as Daylight Savings Time                                                 |
+| `BOOLEAN`          | Boolean values are represented by the keywords TRUE and FALSE                                     | `BOOLEAN`       |                                                                                                                                                  |
+| `CHAR`             | Variable-length character data                                                                    | `STRING`        |                                                                                                                                                  |
+| `VARCHAR`          | Variable-length character data                                                                    | `STRING`        |                                                                                                                                                  |
+| `STRING`           | Variable-length character data                                                                    | `STRING`        |                                                                                                                                                  |
+| `BINARY`           | Variable-length binary data                                                                       | `BYTES`         |                                                                                                                                                  |
+| `ARRAY`            | Represents repeated values                                                                        | `ARRAY`         |                                                                                                                                                  |
+| `STRUCT`           | Represents nested structures                                                                      | `STRUCT`        |                                                                                                                                                  |
+| `MAP`              | Dictionary of keys and values. Keys must be of primitive type, whereas values can be of any type. | `ARRAY<STRUCT>` | BigQuery doesn't support Maps natively. The connector implements it as a list of structs, where each struct has two columns: `name` and `value`. |
 
 ### Note about timestamps
 
-In Hive, the `TIMESTAMP` type Timezone-less and stored as an offset from the UNIX epoch.
+Hive has two timestamp types: `TIMESTAMP` and `TIMESTAMPLOCALTZ`. These are equivalent to BigQuery's `DATETIME`
+and `TIMESTAMP` types, respectively.
 
-More documentation on this topic to be added soon...
+In Hive, `TIMESTAMPLOCALTZ` is timezoned, while `TIMESTAMP` is timezone-less. However, as a convenience to some users,
+the connector allows Hive's `TIMESTAMP` to be mapped to a BigQuery `TIMESTAMP`, which is timezoned. This can be useful
+for Hive users who have historically used Hive's `TIMESTAMP` as a timestamp with an implicit timezone, usually the
+system timezone set on the HiveServer2 cluster. To enable this functionality, set the following configuration property
+to your desired timezone in the IANA format. The full list of timezones can be found
+[here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). For example:
+
+```xml
+<property>
+  <name>bq.hive.timestamp.timezone</name>
+  <value>Asia/Kolkata</value>
+</property>
+```
 
 ## Execution engines
 

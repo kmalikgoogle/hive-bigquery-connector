@@ -21,18 +21,17 @@ import com.google.cloud.hive.bigquery.connector.utils.avro.AvroUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.time.ZoneId;
 import java.util.*;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
+import org.apache.hadoop.hive.common.type.TimestampTZ;
+import org.apache.hadoop.hive.serde2.io.*;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
-import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
-import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.*;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.*;
 import org.apache.hadoop.io.*;
@@ -45,7 +44,7 @@ public class AvroDeserializer {
    * GCS and then loaded into BigQuery via the File Load API.
    */
   public static Record buildSingleRecord(
-      StructObjectInspector soi, Schema avroSchema, Object object) {
+      Configuration conf, StructObjectInspector soi, Schema avroSchema, Object object) {
     Record record = new Record(avroSchema);
     List<? extends StructField> allStructFieldRefs = soi.getAllStructFieldRefs();
     List<Object> structFieldsDataAsList = soi.getStructFieldsDataAsList(object);
@@ -55,14 +54,18 @@ public class AvroDeserializer {
           allStructFieldRefs.get(fieldIndex).getFieldObjectInspector();
       String fieldName = allStructFieldRefs.get(fieldIndex).getFieldName();
       Schema fieldSchema = avroSchema.getField(fieldName).schema();
-      Object avroValue = convertHiveValueToAvroValue(fieldObjectInspector, fieldSchema, hiveValue);
+      Object avroValue =
+          convertHiveValueToAvroValue(conf, fieldObjectInspector, fieldSchema, hiveValue);
       record.put(fieldIndex, avroValue);
     }
     return record;
   }
 
   private static Object convertHiveValueToAvroValue(
-      ObjectInspector fieldObjectInspector, Schema fieldSchema, Object fieldValue) {
+      Configuration conf,
+      ObjectInspector fieldObjectInspector,
+      Schema fieldSchema,
+      Object fieldValue) {
     if (fieldValue == null) {
       return null;
     }
@@ -78,7 +81,7 @@ public class AvroDeserializer {
       while (iterator.hasNext()) {
         Object elementValue = iterator.next();
         Object converted =
-            convertHiveValueToAvroValue(elementObjectInspector, elementSchema, elementValue);
+            convertHiveValueToAvroValue(conf, elementObjectInspector, elementSchema, elementValue);
         array.add(converted);
       }
       return array;
@@ -86,7 +89,10 @@ public class AvroDeserializer {
 
     if (fieldObjectInspector instanceof StructObjectInspector) { // Record/Struct type
       return buildSingleRecord(
-          (StructObjectInspector) fieldObjectInspector, schemaInfo.getActualSchema(), fieldValue);
+          conf,
+          (StructObjectInspector) fieldObjectInspector,
+          schemaInfo.getActualSchema(),
+          fieldValue);
     }
 
     if (fieldObjectInspector instanceof MapObjectInspector) { // Map type
@@ -105,7 +111,7 @@ public class AvroDeserializer {
         Object key = entry.getKey().toString();
         Object convertedValue =
             convertHiveValueToAvroValue(
-                moi.getMapValueObjectInspector(), valueSchema, entry.getValue());
+                conf, moi.getMapValueObjectInspector(), valueSchema, entry.getValue());
         record.put(KeyValueObjectInspector.KEY_FIELD_NAME, key);
         record.put(KeyValueObjectInspector.VALUE_FIELD_NAME, convertedValue);
         array.add(record);
@@ -148,15 +154,19 @@ public class AvroDeserializer {
       Timestamp timestamp = ((TimestampWritableV2) fieldValue).getTimestamp();
       JsonNode logicalType = schemaInfo.getActualSchema().getJsonProp("logicalType");
       if (logicalType != null) {
-        if (logicalType.asText().equals("timestamp-micros")) {
-          return DateTimeUtils.convertToEpochMicros(
-              timestamp, ZoneId.of("UTC")); // TODO: Make UTC conversion optional via config?
-        } else if (logicalType.asText().equals("local-timestamp-micros")) {
-          return DateTimeUtils.convertToEpochMicros(timestamp);
+        if (logicalType.asText().equals("timestamp-micros")) { // BigQuery TIMESTAMP
+          return DateTimeUtils.getToUTCEpochMicrosFromHiveTimestamp(conf, timestamp);
+        } else if (logicalType.asText().equals("local-timestamp-micros")) { // BigQuery DATETIME
+          return DateTimeUtils.getEpochMicrosFromHiveTimestamp(timestamp);
         }
       }
       throw new RuntimeException(
           "Unsupported timestamp type: " + schemaInfo.getActualSchema().toString());
+    }
+
+    if (fieldObjectInspector instanceof TimestampLocalTZObjectInspector) {
+      TimestampTZ timestampTZ = ((TimestampLocalTZWritable) fieldValue).getTimestampTZ();
+      return DateTimeUtils.getEpochMicrosFromHiveTimestampTZ(timestampTZ);
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

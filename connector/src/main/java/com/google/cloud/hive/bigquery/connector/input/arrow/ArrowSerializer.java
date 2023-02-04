@@ -23,6 +23,7 @@ import java.util.*;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
+import org.apache.hadoop.hive.common.type.TimestampTZ;
 import org.apache.hadoop.hive.serde2.io.*;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
@@ -32,6 +33,7 @@ import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.*;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.*;
 import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapred.JobConf;
 import repackaged.by.hivebqconnector.org.apache.arrow.vector.*;
 import repackaged.by.hivebqconnector.org.apache.arrow.vector.complex.ListVector;
 import repackaged.by.hivebqconnector.org.apache.arrow.vector.complex.StructVector;
@@ -42,7 +44,8 @@ public class ArrowSerializer {
    * Converts the given Arrow-formatted value that was read from BigQuery to a serialized format
    * that Hive understands.
    */
-  public static Object serialize(Object value, ObjectInspector objectInspector, int rowId) {
+  public static Object serialize(
+      JobConf conf, Object value, ObjectInspector objectInspector, int rowId) {
     if (value == null || (value instanceof ValueVector && ((ValueVector) value).isNull(rowId))) {
       return null;
     }
@@ -112,20 +115,26 @@ public class ArrowSerializer {
       Timestamp timestamp;
       if (value instanceof TimeStampMicroVector) { // BigQuery DATETIME
         LocalDateTime localDateTime = ((TimeStampMicroVector) value).getObject(rowId);
-        timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
+        timestamp = DateTimeUtils.getHiveTimestampFromLocalDatetime(localDateTime);
       } else if (value instanceof TimeStampMicroTZVector) { // BigQuery TIMESTAMP
         long longValue = ((TimeStampMicroTZVector) value).get(rowId);
-        timestamp = DateTimeUtils.convertFromUTC(longValue);
+        timestamp = DateTimeUtils.getHiveTimestampFromUTC(conf, longValue);
       } else if (value instanceof LocalDateTime) { // BigQuery DATETIME inside a STRUCT
         LocalDateTime localDateTime = (LocalDateTime) value;
-        timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
+        timestamp = DateTimeUtils.getHiveTimestampFromLocalDatetime(localDateTime);
       } else if (value instanceof Long) { // BigQuery TIMESTAMP inside a STRUCT
         long longValue = (Long) value;
-        timestamp = DateTimeUtils.convertFromUTC(longValue);
+        timestamp = DateTimeUtils.getHiveTimestampFromUTC(conf, longValue);
       } else {
         throw new RuntimeException("Unexpected timestamp type:" + value.getClass().getName());
       }
       return new TimestampWritableV2(timestamp);
+    }
+
+    if (objectInspector instanceof TimestampLocalTZObjectInspector) {
+      long longValue = ((TimeStampMicroTZVector) value).get(rowId);
+      TimestampTZ timestampTZ = DateTimeUtils.getHiveTimestampTZFromUTC(longValue);
+      return new TimestampLocalTZWritable(timestampTZ);
     }
 
     if (objectInspector instanceof ListObjectInspector) { // Array/List type
@@ -137,7 +146,8 @@ public class ArrowSerializer {
       Object[] children = new Object[numItems];
       for (int i = 0; i < numItems; i++) {
         children[i] =
-            serialize(listVector.getDataVector(), loi.getListElementObjectInspector(), start + i);
+            serialize(
+                conf, listVector.getDataVector(), loi.getListElementObjectInspector(), start + i);
       }
       return children;
     }
@@ -155,8 +165,8 @@ public class ArrowSerializer {
           structVector.getChildVectorWithOrdinal(KeyValueObjectInspector.VALUE_FIELD_NAME).vector;
       int numItems = end - start;
       for (int i = 0; i < numItems; i++) {
-        Object k = serialize(keys, moi.getMapKeyObjectInspector(), start + i);
-        Object v = serialize(values, moi.getMapValueObjectInspector(), start + i);
+        Object k = serialize(conf, keys, moi.getMapKeyObjectInspector(), start + i);
+        Object v = serialize(conf, values, moi.getMapValueObjectInspector(), start + i);
         map.put(k, v);
       }
       return map;
@@ -170,7 +180,10 @@ public class ArrowSerializer {
       for (FieldVector fieldVector : fieldVectors) {
         row[i] =
             serialize(
-                fieldVector, soi.getAllStructFieldRefs().get(i).getFieldObjectInspector(), rowId);
+                conf,
+                fieldVector,
+                soi.getAllStructFieldRefs().get(i).getFieldObjectInspector(),
+                rowId);
         i++;
       }
       return row;

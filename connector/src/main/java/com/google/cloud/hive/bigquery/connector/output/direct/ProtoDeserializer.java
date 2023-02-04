@@ -20,9 +20,10 @@ import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.hive.bigquery.connector.utils.hive.KeyValueObjectInspector;
-import java.time.ZoneId;
 import java.util.*;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.Timestamp;
+import org.apache.hadoop.hive.common.type.TimestampTZ;
 import org.apache.hadoop.hive.serde2.io.*;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
@@ -45,6 +46,7 @@ public class ProtoDeserializer {
    * BigQuery stream using the Storage Write API.
    */
   public static DynamicMessage buildSingleRowMessage(
+      Configuration conf,
       StructObjectInspector soi,
       Descriptors.Descriptor protoDescriptor,
       FieldList bigqueryFields,
@@ -63,7 +65,7 @@ public class ProtoDeserializer {
               ProtoSchemaConverter.RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
       Object protoValue =
           convertHiveValueToProtoRowValue(
-              fieldObjectInspector, nestedTypeDescriptor, bigqueryField, hiveValue);
+              conf, fieldObjectInspector, nestedTypeDescriptor, bigqueryField, hiveValue);
       if (protoValue == null) {
         continue;
       }
@@ -75,6 +77,7 @@ public class ProtoDeserializer {
   }
 
   private static Object convertHiveValueToProtoRowValue(
+      Configuration conf,
       ObjectInspector fieldObjectInspector,
       Descriptors.Descriptor nestedTypeDescriptor,
       Field bigqueryField,
@@ -92,7 +95,7 @@ public class ProtoDeserializer {
         Object elementValue = iterator.next();
         Object converted =
             convertHiveValueToProtoRowValue(
-                elementObjectInspector, nestedTypeDescriptor, bigqueryField, elementValue);
+                conf, elementObjectInspector, nestedTypeDescriptor, bigqueryField, elementValue);
         if (converted == null) {
           continue;
         }
@@ -103,6 +106,7 @@ public class ProtoDeserializer {
 
     if (fieldObjectInspector instanceof StructObjectInspector) {
       return buildSingleRowMessage(
+          conf,
           (StructObjectInspector) fieldObjectInspector,
           nestedTypeDescriptor,
           bigqueryField.getSubFields(),
@@ -117,6 +121,7 @@ public class ProtoDeserializer {
       for (Map.Entry<?, ?> entry : ((Map<?, ?>) fieldValue).entrySet()) {
         DynamicMessage entryMessage =
             buildSingleRowMessage(
+                conf,
                 kvoi,
                 nestedTypeDescriptor,
                 bigqueryField.getSubFields(),
@@ -160,10 +165,9 @@ public class ProtoDeserializer {
       }
       Timestamp timestamp = ((TimestampWritableV2) fieldValue).getTimestamp();
       if (bigqueryField.getType().getStandardType().equals(StandardSQLTypeName.TIMESTAMP)) {
-        return DateTimeUtils.convertToEpochMicros(
-            timestamp, ZoneId.of("UTC")); // TODO: Make UTC conversion optional via config?
+        return DateTimeUtils.getToUTCEpochMicrosFromHiveTimestamp(conf, timestamp);
       } else if (bigqueryField.getType().getStandardType().equals(StandardSQLTypeName.DATETIME)) {
-        return DateTimeUtils.convertToEncodedProtoLongValue(timestamp);
+        return DateTimeUtils.getEncodedProtoLongFromHiveTimestamp(timestamp);
       } else {
         throw new RuntimeException(
             String.format(
@@ -172,6 +176,11 @@ public class ProtoDeserializer {
                 bigqueryField.getName(),
                 fieldObjectInspector.getTypeName()));
       }
+    }
+
+    if (fieldObjectInspector instanceof TimestampLocalTZObjectInspector) {
+      TimestampTZ timestampTZ = ((TimestampLocalTZWritable) fieldValue).getTimestampTZ();
+      return DateTimeUtils.getEpochMicrosFromHiveTimestampTZ(timestampTZ);
     }
 
     if (fieldObjectInspector instanceof DateObjectInspector) {

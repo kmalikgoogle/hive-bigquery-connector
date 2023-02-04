@@ -79,7 +79,11 @@ public class DirectRecordWriter
     Object object = ((ObjectWritable) writable).get();
     DynamicMessage message =
         ProtoDeserializer.buildSingleRowMessage(
-            rowObjectInspector, descriptor, jobDetails.getBigquerySchema().getFields(), object);
+            jobConf,
+            rowObjectInspector,
+            descriptor,
+            jobDetails.getBigquerySchema().getFields(),
+            object);
     streamWriter.addRow(message.toByteString());
   }
 

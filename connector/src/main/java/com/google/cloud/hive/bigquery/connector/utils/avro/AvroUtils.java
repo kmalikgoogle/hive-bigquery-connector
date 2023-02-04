@@ -106,6 +106,11 @@ public class AvroUtils {
       }
       return schema;
     }
+    if (fieldOi instanceof TimestampLocalTZObjectInspector) {
+      Schema schema = Schema.create(Schema.Type.LONG);
+      schema.addProp("logicalType", "timestamp-micros");
+      return schema;
+    }
     if (fieldOi instanceof DateObjectInspector) {
       Schema schema = Schema.create(Schema.Type.INT);
       schema.addProp("logicalType", "date");

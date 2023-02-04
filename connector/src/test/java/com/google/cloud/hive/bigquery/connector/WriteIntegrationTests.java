@@ -22,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.google.cloud.bigquery.FieldValueList;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.hive.bigquery.connector.config.HiveBigQueryConfig;
+import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
 import com.google.cloud.storage.Blob;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junitpioneer.jupiter.DefaultTimeZone;
 import repackaged.by.hivebqconnector.com.google.common.collect.Streams;
 
 public class WriteIntegrationTests extends IntegrationTestsBase {
@@ -108,13 +108,12 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
 
   // ---------------------------------------------------------------------------------------------------
 
-  /** Check that we can write to both the BigQuery TIMESTAMP and DATETIME types. */
-  @ParameterizedTest
-  @MethodSource(EXECUTION_ENGINE_WRITE_METHOD)
-  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
-  public void testWriteTimestampAndDatetime(String engine, String writeMethod) {
-    hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
-    initHive(engine, HiveBigQueryConfig.AVRO);
+  /**
+   * Check that we can write from a Hive TIMESTAMP to both the BigQuery TIMESTAMP and DATETIME
+   * types.
+   */
+  public void writeTimestampAndDatetime(String writeMethod) {
+    initHive("tez", HiveBigQueryConfig.AVRO);
     // Create the tables
     createExternalTable(
         TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
@@ -148,12 +147,26 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
         row.get(2).getRecordValue().get("ts4").getStringValue());
   }
 
+  @ParameterizedTest
+  @MethodSource(WRITE_METHOD)
+  public void testWriteTimestampAndDatetimeWithCorrectSetting(String writeMethod) {
+    hive.setHiveConfValue(HiveBigQueryConfig.HIVE_TIMESTAMP_TIMEZONE, "Pacific/Honolulu");
+    writeTimestampAndDatetime(writeMethod);
+  }
+
+  @ParameterizedTest
+  @MethodSource(WRITE_METHOD)
+  public void testWriteTimestampAndDatetimeWithoutCorrectSetting(String writeMethod) {
+    Throwable exception =
+        assertThrows(RuntimeException.class, () -> writeTimestampAndDatetime(writeMethod));
+    assertTrue(exception.getMessage().contains(DateTimeUtils.TIMEZONED_TIMESTAMP_ERROR));
+  }
+
   // ---------------------------------------------------------------------------------------------------
 
   /** Check that we can write all types of data to BigQuery. */
   @ParameterizedTest
   @MethodSource(EXECUTION_ENGINE_WRITE_METHOD)
-  @DefaultTimeZone("HST") // Set system timezone to Hawaii Standard Time (Pacific/Honolulu, -10:00)
   public void testWriteAllTypes(String engine, String writeMethod) {
     hive.setHiveConfValue(HiveBigQueryConfig.WRITE_METHOD_KEY, writeMethod);
     initHive(engine, HiveBigQueryConfig.AVRO);
@@ -174,7 +187,10 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
             "\"var char\",",
             "\"string\",",
             "CAST(\"2019-03-18\" AS DATE),",
-            "CAST(\"2019-03-18T01:23:45.678901\" AS TIMESTAMP),",
+            // Wall clock (no timezone)
+            "CAST(\"2000-01-01T00:23:45.123456\" as TIMESTAMP),",
+            // (Pacific/Honolulu, -10:00)
+            "CAST(\"2000-01-01 00:23:45.123456 Pacific/Honolulu\" AS TIMESTAMPLOCALTZ),",
             "CAST(\"bytes\" AS BINARY),",
             "2.0,",
             "4.2,",
@@ -197,7 +213,7 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
     assertEquals(1, result.getTotalRows());
     List<FieldValueList> rows = Streams.stream(result.iterateAll()).collect(Collectors.toList());
     FieldValueList row = rows.get(0);
-    assertEquals(18, row.size()); // Number of columns
+    assertEquals(19, row.size()); // Number of columns
     assertEquals(11L, row.get(0).getLongValue());
     assertEquals(22L, row.get(1).getLongValue());
     assertEquals(33L, row.get(2).getLongValue());
@@ -207,11 +223,13 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
     assertEquals("var char", row.get(6).getStringValue());
     assertEquals("string", row.get(7).getStringValue());
     assertEquals("2019-03-18", row.get(8).getStringValue());
-    assertEquals("2019-03-18T01:23:45.678901", row.get(9).getStringValue());
-    assertArrayEquals("bytes".getBytes(), row.get(10).getBytesValue());
-    assertEquals(2.0, row.get(11).getDoubleValue());
-    assertEquals(4.2, row.get(12).getDoubleValue());
-    FieldValueList struct = row.get(13).getRecordValue();
+    assertEquals("2000-01-01T00:23:45.123456", row.get(9).getStringValue());
+    assertEquals(
+        "2000-01-01T10:23:45.123456Z", row.get(10).getTimestampInstant().toString()); // 'Z' == UTC
+    assertArrayEquals("bytes".getBytes(), row.get(11).getBytesValue());
+    assertEquals(2.0, row.get(12).getDoubleValue());
+    assertEquals(4.2, row.get(13).getDoubleValue());
+    FieldValueList struct = row.get(14).getRecordValue();
     assertEquals(
         "-99999999999999999999999999999.999999999",
         struct.get("min").getNumericValue().toPlainString());
@@ -222,23 +240,23 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
     assertEquals(
         "31415926535897932384626433832.795028841",
         struct.get("big_pi").getNumericValue().toPlainString());
-    FieldValueList array = (FieldValueList) row.get(14).getValue();
+    FieldValueList array = (FieldValueList) row.get(15).getValue();
     assertEquals(3, array.size());
     assertEquals(1, array.get(0).getLongValue());
     assertEquals(2, array.get(1).getLongValue());
     assertEquals(3, array.get(2).getLongValue());
-    FieldValueList arrayOfStructs = (FieldValueList) row.get(15).getValue();
+    FieldValueList arrayOfStructs = (FieldValueList) row.get(16).getValue();
     assertEquals(1, arrayOfStructs.size());
     struct = (FieldValueList) arrayOfStructs.get(0).getValue();
     assertEquals(1L, struct.get(0).getLongValue());
     // Mixed struct
-    struct = row.get(16).getRecordValue();
+    struct = row.get(17).getRecordValue();
     assertEquals(
         4.199999809265137,
         struct.get("float_field").getDoubleValue()); // TODO: Address discrepancy here
     assertEquals("2019-03-18T01:23:45.678901", struct.get("ts_field").getStringValue());
     // Check the Map type
-    FieldValueList map = (FieldValueList) row.get(17).getRepeatedValue();
+    FieldValueList map = (FieldValueList) row.get(18).getRepeatedValue();
     assertEquals(1, map.size());
     FieldValueList entry = map.get(0).getRecordValue();
     assertEquals("mykey", entry.get(0).getStringValue());

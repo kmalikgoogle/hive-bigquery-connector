@@ -57,6 +57,9 @@ public class BigQuerySchemaConverter {
               .put(
                   PrimitiveObjectInspector.PrimitiveCategory.TIMESTAMP,
                   StandardSQLTypeName.DATETIME)
+              .put(
+                  PrimitiveObjectInspector.PrimitiveCategory.TIMESTAMPLOCALTZ,
+                  StandardSQLTypeName.TIMESTAMP)
               .put(PrimitiveObjectInspector.PrimitiveCategory.BINARY, StandardSQLTypeName.BYTES)
               .build();
 

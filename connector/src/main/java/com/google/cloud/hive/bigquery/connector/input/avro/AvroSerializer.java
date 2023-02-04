@@ -30,9 +30,11 @@ import java.util.Map;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
+import org.apache.hadoop.hive.common.type.TimestampTZ;
 import org.apache.hadoop.hive.serde2.io.*;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
@@ -50,7 +52,7 @@ public class AvroSerializer {
    * Hive understands.
    */
   public static Object serialize(
-      Object avroObject, ObjectInspector objectInspector, Schema schema) {
+      Configuration conf, Object avroObject, ObjectInspector objectInspector, Schema schema) {
     AvroSchemaInfo schemaInfo = AvroUtils.getSchemaInfo(schema);
 
     if (avroObject == null) {
@@ -69,7 +71,10 @@ public class AvroSerializer {
           .map(
               value ->
                   serialize(
-                      value, loi.getListElementObjectInspector(), actualSchema.getElementType()))
+                      conf,
+                      value,
+                      loi.getListElementObjectInspector(),
+                      actualSchema.getElementType()))
           .toArray();
     }
 
@@ -79,7 +84,7 @@ public class AvroSerializer {
       KeyValueObjectInspector kvoi = KeyValueObjectInspector.create(moi);
       Map<Object, Object> map = new HashMap<>();
       for (Object object : array) {
-        Object[] item = (Object[]) serialize(object, kvoi, actualSchema.getElementType());
+        Object[] item = (Object[]) serialize(conf, object, kvoi, actualSchema.getElementType());
         map.put(item[0], item[1]);
       }
       return map;
@@ -93,6 +98,7 @@ public class AvroSerializer {
           .map(
               field ->
                   serialize(
+                      conf,
                       record.get(field.name()),
                       soi.getStructFieldRef(field.name()).getFieldObjectInspector(),
                       field.schema()))
@@ -113,15 +119,20 @@ public class AvroSerializer {
       // Convert the UTC timestamp received from BigQuery to a local timezone-less Hive timestamp
       if (avroObject instanceof Utf8) { // BigQuery DATETIME
         LocalDateTime localDateTime = LocalDateTime.parse(((Utf8) avroObject).toString());
-        Timestamp timestamp = DateTimeUtils.convertToHiveTimestamp(localDateTime);
+        Timestamp timestamp = DateTimeUtils.getHiveTimestampFromLocalDatetime(localDateTime);
         TimestampWritableV2 timestampWritable = new TimestampWritableV2();
         timestampWritable.setInternal(timestamp.toEpochMilli(), timestamp.getNanos());
         return timestampWritable;
       }
       if (avroObject instanceof Long) { // BigQuery TIMESTAMP
-        Timestamp timestamp = DateTimeUtils.convertFromUTC((long) avroObject);
+        Timestamp timestamp = DateTimeUtils.getHiveTimestampFromUTC(conf, (long) avroObject);
         return new TimestampWritableV2(timestamp);
       }
+    }
+
+    if (objectInspector instanceof TimestampLocalTZObjectInspector) {
+      TimestampTZ timestampTZ = DateTimeUtils.getHiveTimestampTZFromUTC((long) avroObject);
+      return new TimestampLocalTZWritable(timestampTZ);
     }
 
     if (objectInspector instanceof ByteObjectInspector) { // Tiny Int

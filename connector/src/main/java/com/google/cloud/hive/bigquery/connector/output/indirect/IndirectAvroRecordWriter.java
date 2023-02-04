@@ -66,7 +66,8 @@ public class IndirectAvroRecordWriter
   public void write(Writable writable) throws IOException {
     Object serializedRecord = ((ObjectWritable) writable).get();
     GenericRecord record =
-        AvroDeserializer.buildSingleRecord(rowObjectInspector, avroSchema, serializedRecord);
+        AvroDeserializer.buildSingleRecord(
+            jobConf, rowObjectInspector, avroSchema, serializedRecord);
     this.avroOutput.getDataFileWriter().append(record);
   }
 

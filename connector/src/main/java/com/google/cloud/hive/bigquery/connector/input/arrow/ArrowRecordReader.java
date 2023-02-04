@@ -40,11 +40,13 @@ public class ArrowRecordReader
   private final RecordReader<NullWritable, VectorSchemaRoot> arrowBatchReader;
   private final List<String> columnNames;
   private final StructObjectInspector rowObjectInspector;
+  private final JobConf jobConf;
 
   public ArrowRecordReader(BigQueryInputSplit inputSplit, JobConf jobConf) {
-    arrowBatchReader = new ArrowBatchReader(inputSplit, jobConf);
-    columnNames = inputSplit.getColumnNames();
-    rowObjectInspector = BigQuerySerDe.getRowObjectInspector(jobConf);
+    this.jobConf = jobConf;
+    this.arrowBatchReader = new ArrowBatchReader(inputSplit, jobConf);
+    this.columnNames = inputSplit.getColumnNames();
+    this.rowObjectInspector = BigQuerySerDe.getRowObjectInspector(jobConf);
   }
 
   /**
@@ -59,7 +61,7 @@ public class ArrowRecordReader
       int colIndex = columnNames.indexOf(fieldVector.getName());
       ObjectInspector fieldObjectInspector =
           rowObjectInspector.getStructFieldRef(fieldVector.getName()).getFieldObjectInspector();
-      row[colIndex] = ArrowSerializer.serialize(fieldVector, fieldObjectInspector, rowId);
+      row[colIndex] = ArrowSerializer.serialize(jobConf, fieldVector, fieldObjectInspector, rowId);
     }
     numRowsLeftInBatch--;
     return row;
