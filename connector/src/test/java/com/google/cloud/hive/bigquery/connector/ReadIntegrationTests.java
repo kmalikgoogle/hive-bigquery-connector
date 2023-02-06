@@ -473,7 +473,8 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
             "select CAST(tiny_int_val as int),CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where (((dbl%1)-2)=21) ",
             "select CAST(tiny_int_val as int),CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where (((fl%1)-2)=21)  ",
             "select dbl+2.0D,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where dbl+2.0D=2 ",
-            "select tiny_int_val%2.0D,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where dbl+2.0D=2 or (((dbl%1)-2)=21) "
+            "select tiny_int_val%2.0D,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +" where tiny_int_val+1=2 or tiny_int_val-1=1 or tiny_int_val*2=2 or tiny_int_val%2=0 ",
+            "select dbl/2.0,CAST(dbl as STRING) from " + ALL_TYPES_TABLE_NAME +"  where dbl+1=21.44 or dbl-1=19.44 or dbl*2=2 or dbl%2=0 "
 
     };
    // runBqQuery(String.format("SELECT tiny_int_val+2,tiny_int_val/2 FROM `${dataset}.%s`", ALL_TYPES_TABLE_NAME));
