@@ -247,8 +247,9 @@ In Hive, `TIMESTAMPLOCALTZ` is timezoned, while `TIMESTAMP` is timezone-less. Ho
 the connector allows Hive's `TIMESTAMP` to be mapped to a BigQuery `TIMESTAMP`, which is timezoned. This can be useful
 for Hive users who have historically used Hive's `TIMESTAMP` as a timestamp with an implicit timezone, usually the
 system timezone set on the HiveServer2 cluster. To enable this functionality, set the following configuration property
-to your desired timezone in the IANA format. The full list of timezones can be found
-[here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). For example:
+to your desired time zone. Timezone names are from the [tz database](http://www.iana.org/time-zones).
+For a less comprehensive but simpler reference, see the [List of tz database timezones](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+on Wikipedia. For example:
 
 ```xml
 <property>
