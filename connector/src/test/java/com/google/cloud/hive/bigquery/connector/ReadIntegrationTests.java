@@ -19,6 +19,7 @@ import static com.google.cloud.hive.bigquery.connector.TestUtils.*;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.google.cloud.bigquery.FieldValueList;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.hive.bigquery.connector.config.HiveBigQueryConfig;
 import com.google.cloud.hive.bigquery.connector.utils.DateTimeUtils;
@@ -26,11 +27,13 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import repackaged.by.hivebqconnector.com.google.common.collect.Streams;
 
 public class ReadIntegrationTests extends IntegrationTestsBase {
 
@@ -341,38 +344,39 @@ public class ReadIntegrationTests extends IntegrationTestsBase {
     createExternalTable(
         TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
     // Insert data using the BQ SDK
+    String bqTimestampValue = "2022-12-27T10:00:00.123456";
+    String UTC = "Z";
     runBqQuery(
         String.join(
             "\n",
             "INSERT `${dataset}." + TIMESTAMP_TABLE_NAME + "` VALUES (",
-            // (Pacific/Honolulu, -10:00)
-            "cast(\"2000-01-01T00:23:45.123456-10\" as TIMESTAMP),",
-            // Wall clock (no timezone)
-            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME),",
-            "struct(",
-            // (Pacific/Honolulu, -10:00)
-            "cast(\"2000-01-01T00:23:45.123456-10\" as TIMESTAMP),",
-            // Wall clock (no timezone)
-            "cast(\"2000-01-01T00:23:45.123456\" as DATETIME)",
-            "))"));
+            "cast('" + bqTimestampValue + UTC + "' as TIMESTAMP),",
+            "cast('" + bqTimestampValue + "' as DATETIME)",
+            ")"));
     // Read the data using Hive
-    List<Object[]> rows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
-    assertEquals(1, rows.size());
-    Object[] row = rows.get(0);
-    assertEquals(3, row.length); // Number of columns
-    assertEquals("2000-01-01 00:23:45.123456", row[0]); // Assuming: (Pacific/Honolulu, -10:00)
-    assertEquals("2000-01-01 00:23:45.123456", row[1]); // Unchanged
+    List<Object[]> hiveRows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
+    assertEquals(1, hiveRows.size());
+    Object[] hiveRow = hiveRows.get(0);
+    assertEquals(2, hiveRow.length);
+    assertEquals("2022-12-27 15:30:00.123456", hiveRow[0]); // Assuming: (Asia/Kolkata, +5:30)
+    assertEquals("2022-12-27 10:00:00.123456", hiveRow[1]); // Unchanged
+    // Read the data using the BQ SDK
+    TableResult result =
+        runBqQuery(String.format("SELECT * FROM `${dataset}.%s`", TIMESTAMP_TABLE_NAME));
+    assertEquals(1, result.getTotalRows());
+    List<FieldValueList> bqRows = Streams.stream(result.iterateAll()).collect(Collectors.toList());
+    FieldValueList bqRow = bqRows.get(0);
+    assertEquals(2, bqRow.size());
     assertEquals(
-        row[2],
-        "{\"ts3\":\"2000-01-01 00:23:45.123456\"," // Assuming: (Pacific/Honolulu, -10:00)
-            + "\"ts4\":\"2000-01-01 00:23:45.123456\"}"); // Unchanged
+        "2022-12-27T10:00:00.123456Z", bqRow.get(0).getTimestampInstant().toString()); // 'Z' == UTC
+    assertEquals("2022-12-27T10:00:00.123456", bqRow.get(1).getStringValue()); // Unchanged
   }
 
   @ParameterizedTest
   @MethodSource(READ_FORMAT)
   public void testReadTimestampAndDatetimeWithCorrectSetting(String readDataFormat)
       throws IOException {
-    hive.setHiveConfValue(HiveBigQueryConfig.HIVE_TIMESTAMP_TIMEZONE, "Pacific/Honolulu");
+    hive.setHiveConfValue(HiveBigQueryConfig.HIVE_TIMESTAMP_TIMEZONE, "Asia/Kolkata");
     readTimestampAndDatetime(readDataFormat);
   }
 

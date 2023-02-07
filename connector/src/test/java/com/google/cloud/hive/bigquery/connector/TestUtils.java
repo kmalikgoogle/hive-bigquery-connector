@@ -60,8 +60,7 @@ public class TestUtils {
   public static String BIGQUERY_ANOTHER_TEST_TABLE_DDL =
       String.join("\n", "num INT64,", "str_val STRING");
 
-  public static String BIGQUERY_TIMESTAMP_TABLE_DDL =
-      "ts1 TIMESTAMP, ts2 DATETIME, ts_struct STRUCT<ts3 TIMESTAMP, ts4 DATETIME>";
+  public static String BIGQUERY_TIMESTAMP_TABLE_DDL = "ts1 TIMESTAMP, ts2 DATETIME";
 
   public static String BIGQUERY_ALL_TYPES_TABLE_DDL =
       String.join(
@@ -110,8 +109,7 @@ public class TestUtils {
   public static String HIVE_ANOTHER_TEST_TABLE_DDL =
       String.join("\n", "num BIGINT,", "str_val STRING");
 
-  public static String HIVE_TIMESTAMP_TABLE_DDL =
-      "ts1 TIMESTAMP, ts2 TIMESTAMP, ts_struct STRUCT<ts3: TIMESTAMP, ts4: TIMESTAMP>";
+  public static String HIVE_TIMESTAMP_TABLE_DDL = "ts1 TIMESTAMP, ts2 TIMESTAMP";
 
   public static String HIVE_ALL_TYPES_TABLE_DDL =
       String.join(

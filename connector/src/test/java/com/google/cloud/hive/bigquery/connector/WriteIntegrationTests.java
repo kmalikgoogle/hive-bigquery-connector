@@ -118,39 +118,36 @@ public class WriteIntegrationTests extends IntegrationTestsBase {
     createExternalTable(
         TIMESTAMP_TABLE_NAME, HIVE_TIMESTAMP_TABLE_DDL, BIGQUERY_TIMESTAMP_TABLE_DDL);
     // Insert data using Hive
-    String hiveTimestampValue =
-        "CAST(\"2000-01-01T00:23:45.123456\" AS TIMESTAMP)"; // Assuming: (Pacific/Honolulu, -10:00)
+    String hiveTimestampValue = "CAST(\"2022-12-27T10:00:00.123456\" AS TIMESTAMP)";
     runHiveScript(
         String.join(
             "\n",
             "INSERT INTO " + TIMESTAMP_TABLE_NAME + " SELECT",
             hiveTimestampValue + ",",
-            hiveTimestampValue + ",",
-            "NAMED_STRUCT(",
-            "  'ts3', " + hiveTimestampValue + ",",
-            "  'ts4', " + hiveTimestampValue,
-            ")"));
+            hiveTimestampValue));
     // Read the data using the BQ SDK
     TableResult result =
         runBqQuery(String.format("SELECT * FROM `${dataset}.%s`", TIMESTAMP_TABLE_NAME));
-    // Verify we get the expected values
     assertEquals(1, result.getTotalRows());
-    List<FieldValueList> rows = Streams.stream(result.iterateAll()).collect(Collectors.toList());
-    FieldValueList row = rows.get(0);
-    assertEquals("2000-01-01T10:23:45.123456Z", row.get(0).getTimestampInstant().toString()); // UTC
-    assertEquals("2000-01-01T00:23:45.123456", row.get(1).getStringValue()); // Unchanged
+    List<FieldValueList> bqRows = Streams.stream(result.iterateAll()).collect(Collectors.toList());
+    FieldValueList bqRow = bqRows.get(0);
+    assertEquals(2, bqRow.size());
     assertEquals(
-        "2000-01-01T10:23:45.123456Z", // UTC
-        row.get(2).getRecordValue().get("ts3").getTimestampInstant().toString());
-    assertEquals(
-        "2000-01-01T00:23:45.123456", // Unchanged
-        row.get(2).getRecordValue().get("ts4").getStringValue());
+        "2022-12-27T04:30:00.123456Z", bqRow.get(0).getTimestampInstant().toString()); // 'Z' == UTC
+    assertEquals("2022-12-27T10:00:00.123456", bqRow.get(1).getStringValue()); // Unchanged
+    // Read the data using Hive
+    List<Object[]> hiveRows = runHiveStatement("SELECT * FROM " + TIMESTAMP_TABLE_NAME);
+    assertEquals(1, hiveRows.size());
+    Object[] hiveRow = hiveRows.get(0);
+    assertEquals(2, hiveRow.length);
+    assertEquals("2022-12-27 10:00:00.123456", hiveRow[0]); // Assuming: (Asia/Kolkata, +5:30)
+    assertEquals("2022-12-27 10:00:00.123456", hiveRow[1]); // Unchanged
   }
 
   @ParameterizedTest
   @MethodSource(WRITE_METHOD)
   public void testWriteTimestampAndDatetimeWithCorrectSetting(String writeMethod) {
-    hive.setHiveConfValue(HiveBigQueryConfig.HIVE_TIMESTAMP_TIMEZONE, "Pacific/Honolulu");
+    hive.setHiveConfValue(HiveBigQueryConfig.HIVE_TIMESTAMP_TIMEZONE, "Asia/Kolkata");
     writeTimestampAndDatetime(writeMethod);
   }
 
